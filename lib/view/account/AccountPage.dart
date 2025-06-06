@@ -1,5 +1,15 @@
-/*
-├── AccountPage（管理帳戶）
-│   ├── 帳戶清單
-│   ├── 建立/編輯帳戶
-**/
+import 'package:flutter/material.dart';
+
+class AccountPage extends StatelessWidget {
+  const AccountPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Accounts'),
+      ),
+      body: const Center(child: Text('Account Page')), // Placeholder body
+    );
+  }
+}

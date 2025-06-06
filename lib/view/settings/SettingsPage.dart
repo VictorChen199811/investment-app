@@ -1,4 +1,15 @@
-/*
-├── SettingsPage（設定）
-│   └── 匯出/匯入 CSV、資料初始化
-*/
+import 'package:flutter/material.dart';
+
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Settings'),
+      ),
+      body: const Center(child: Text('Settings Page')),
+    );
+  }
+}
