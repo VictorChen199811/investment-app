@@ -1,0 +1,58 @@
+
+
+
+class Investment {
+  final int id;
+  final int accountId;       // 關聯帳戶 ID
+  final String symbol;       // 股票或標的代碼
+  final double buyPrice;     // 買入單價
+  final int quantity;        // 買入數量
+  final double fee;          // 手續費
+  final double? tax;         // 稅費（可選）
+  final double? otherCost;   // 其他成本（可選）
+  final DateTime buyDate;    // 買入日期
+  final String? note;        // 備註
+
+  Investment({
+    required this.id,
+    required this.accountId,
+    required this.symbol,
+    required this.buyPrice,
+    required this.quantity,
+    required this.fee,
+    this.tax,
+    this.otherCost,
+    required this.buyDate,
+    this.note,
+  });
+
+  double get totalCost {
+    return buyPrice * quantity + fee + (tax ?? 0) + (otherCost ?? 0);
+  }
+
+  Investment copyWith({
+    int? id,
+    int? accountId,
+    String? symbol,
+    double? buyPrice,
+    int? quantity,
+    double? fee,
+    double? tax,
+    double? otherCost,
+    DateTime? buyDate,
+    String? note,
+  }) {
+    return Investment(
+      id: id ?? this.id,
+      accountId: accountId ?? this.accountId,
+      symbol: symbol ?? this.symbol,
+      buyPrice: buyPrice ?? this.buyPrice,
+      quantity: quantity ?? this.quantity,
+      fee: fee ?? this.fee,
+      tax: tax ?? this.tax,
+      otherCost: otherCost ?? this.otherCost,
+      buyDate: buyDate ?? this.buyDate,
+      note: note ?? this.note,
+    );
+  }
+}
