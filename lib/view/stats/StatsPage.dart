@@ -1,6 +1,15 @@
-/*
-├── StatsPage（圖表與分析）
-│   ├── 折線圖：投資淨值變化
-│   ├── 圓餅圖：投資組合占比
-│   └── ROI / 總投入等指標
-*/
+import 'package:flutter/material.dart';
+
+class StatsPage extends StatelessWidget {
+  const StatsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Stats'),
+      ),
+      body: const Center(child: Text('Stats Page')),
+    );
+  }
+}
