@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../model/investment.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -11,32 +12,57 @@ class _HomePageState extends State<HomePage> {
   String? _selectedAccount = 'TWD Securities Account';
 
   // 直接定義並初始化，這樣在熱重載時會保留最新數據
-  List<Map<String, dynamic>> _investments = [
-    {
-      'symbol': 'AAPL', 
-      'cost': 2500.0, 
-      'currentPrice': 2587.5
-    },
-    {
-      'symbol': 'TSMC', 
-      'cost': 3700.0, 
-      'currentPrice': 3655.6
-    },
-    {
-      'symbol': '0050', 
-      'cost': 3500.0, 
-      'currentPrice': 3937.5
-    },
-    {
-      'symbol': '黃金',
-      'cost': 3200.0,
-      'currentPrice': 3711.5
-    },
-    {
-      'symbol': '黃金',
-      'cost': 1100.0,
-      'currentPrice': 3711.5
-    }
+  List<Investment> _investments = [
+    Investment(
+      id: 1,
+      accountId: 1,
+      symbol: 'AAPL',
+      buyPrice: 2500.0,
+      quantity: 1,
+      fee: 0,
+      currentPrice: 2587.5,
+      buyDate: DateTime.now(),
+    ),
+    Investment(
+      id: 2,
+      accountId: 1,
+      symbol: 'TSMC',
+      buyPrice: 3700.0,
+      quantity: 1,
+      fee: 0,
+      currentPrice: 3655.6,
+      buyDate: DateTime.now(),
+    ),
+    Investment(
+      id: 3,
+      accountId: 1,
+      symbol: '0050',
+      buyPrice: 3500.0,
+      quantity: 1,
+      fee: 0,
+      currentPrice: 3937.5,
+      buyDate: DateTime.now(),
+    ),
+    Investment(
+      id: 4,
+      accountId: 1,
+      symbol: '黃金',
+      buyPrice: 3200.0,
+      quantity: 1,
+      fee: 0,
+      currentPrice: 3711.5,
+      buyDate: DateTime.now(),
+    ),
+    Investment(
+      id: 5,
+      accountId: 1,
+      symbol: '黃金',
+      buyPrice: 1100.0,
+      quantity: 1,
+      fee: 0,
+      currentPrice: 3711.5,
+      buyDate: DateTime.now(),
+    ),
   ];
   
   @override
@@ -47,7 +73,7 @@ class _HomePageState extends State<HomePage> {
     // 初始化時進行數據驗證
     print("投資項目總數: ${_investments.length}");
     for (int i = 0; i < _investments.length; i++) {
-      print("項目 $i: ${_investments[i]['symbol']}");
+      print("項目 $i: ${_investments[i].symbol}");
     }
     
     // 為了在熱重載時也確保黃金項目存在，我們在構造函數中進行檢查
@@ -56,7 +82,7 @@ class _HomePageState extends State<HomePage> {
     // 在初始化後立即確認數據已正確加載
     print("初始化時的投資項目數量: ${_investments.length}");
     for (int i = 0; i < _investments.length; i++) {
-      print("初始化項目 $i: ${_investments[i]['symbol']} (cost: ${_investments[i]['cost']})");
+      print("初始化項目 $i: ${_investments[i].symbol} (cost: ${_investments[i].totalCost})");
     }
   }
 
@@ -88,15 +114,20 @@ class _HomePageState extends State<HomePage> {
         onPressed: () {
           // 創建新列表引用，確保 Flutter 檢測到變化
           setState(() {
-            final newItem = {
-              'symbol': '新投資${_investments.length + 1}',
-              'cost': 1000.0 + (_investments.length * 500),
-              'currentPrice': 1100.0 + (_investments.length * 550),
-            };
-            
+            final newItem = Investment(
+              id: _investments.length + 1,
+              accountId: 1,
+              symbol: '新投資${_investments.length + 1}',
+              buyPrice: 1000.0 + (_investments.length * 500),
+              quantity: 1,
+              fee: 0,
+              currentPrice: 1100.0 + (_investments.length * 550),
+              buyDate: DateTime.now(),
+            );
+
             // 創建新列表而不是修改原列表
             _investments = List.from(_investments)..add(newItem);
-            print("添加了新投資項目: ${newItem['symbol']}，當前總數: ${_investments.length}");
+            print("添加了新投資項目: ${newItem.symbol}，當前總數: ${_investments.length}");
           });
           
           // 確保 UI 刷新
@@ -251,12 +282,12 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildPortfolioSection() {
     // 創建數據快照，確保 UI 重建時使用當前數據
-    final investmentsSnapshot = List<Map<String, dynamic>>.from(_investments);
+    final investmentsSnapshot = List<Investment>.from(_investments);
     print("構建投資組合區段：${investmentsSnapshot.length} 個項目");
-    
+
     // 遍歷並打印所有項目，幫助調試
     for (int i = 0; i < investmentsSnapshot.length; i++) {
-      print("  - 項目 $i: ${investmentsSnapshot[i]['symbol']}");
+      print("  - 項目 $i: ${investmentsSnapshot[i].symbol}");
     }
     
     return Padding(
@@ -292,7 +323,7 @@ class _HomePageState extends State<HomePage> {
                           print("\n===== 刷新前診斷 =====");
                           print("投資列表長度: ${_investments.length}");
                           for (int i = 0; i < _investments.length; i++) {
-                            print("  $i: ${_investments[i]['symbol']}");
+                            print("  $i: ${_investments[i].symbol}");
                           }
                           
                           // 強制刷新 UI
@@ -327,21 +358,11 @@ class _HomePageState extends State<HomePage> {
           Column(
             children: List.generate(investmentsSnapshot.length, (index) {
               // 使用快照數據而不是直接引用 _investments
-              final item = investmentsSnapshot[index];
-              final symbol = item['symbol'] as String? ?? '';
-              
-              // 明確的取值和轉換策略
-              double cost = 0.0;
-              if (item['cost'] != null) {
-                final dynamic costValue = item['cost'];
-                cost = costValue is double ? costValue : double.parse(costValue.toString());
-              }
-              
-              double currentPrice = 0.0;
-              if (item['currentPrice'] != null) {
-                final dynamic priceValue = item['currentPrice'];
-                currentPrice = priceValue is double ? priceValue : double.parse(priceValue.toString());
-              }
+              final Investment item = investmentsSnapshot[index];
+              final symbol = item.symbol;
+
+              final double cost = item.totalCost;
+              final double currentPrice = item.currentPrice;
               
               return Column(
                 key: ValueKey('investment-$index-$symbol'), // 添加唯一 Key
@@ -366,56 +387,17 @@ class _HomePageState extends State<HomePage> {
   // 直接計算總投資成本
   double _calculateTotalInvestment() {
     double total = 0.0;
-    
-    // 直接迭代列表
-    for (int i = 0; i < _investments.length; i++) {
-      try {
-        // 直接獲取成本值
-        final Map<String, dynamic> investment = _investments[i];
-
-        // 檢查 'cost' 鍵是否存在且不為 null
-        if (investment.containsKey('cost')) {
-          final costValue = investment['cost'];
-
-          if (costValue != null) {
-            double cost = 0.0;
-            
-            // 根據類型處理
-            if (costValue is double) {
-              cost = costValue;
-            } else if (costValue is int) {
-              cost = costValue.toDouble();
-            } else {
-              cost = double.parse(costValue.toString());
-            }
-            
-            total += cost;
-          } else {
-            print("  - 'cost' 值為 null");
-          }
-        } else {
-          print("  - 'cost' 鍵不存在");
-        }
-      } catch (e) {
-        print("處理項目 $i 時出錯: $e");
-      }
+    for (final investment in _investments) {
+      total += investment.totalCost;
     }
     return total;
   }
-  
+
   // 計算當前總價值
   double _calculateCurrentValue() {
     double total = 0.0;
     for (var investment in _investments) {
-      var currentPrice = investment['currentPrice'];
-      if (currentPrice != null) {
-        try {
-          double priceValue = currentPrice is int ? currentPrice.toDouble() : (currentPrice as double);
-          total += priceValue;
-        } catch (e) {
-          print(e);
-        }
-      }
+      total += investment.currentPrice;
     }
     return total;
   }
@@ -437,11 +419,11 @@ class _HomePageState extends State<HomePage> {
   void _sortInvestments(String sortBy) {
     setState(() {
       if (sortBy == 'symbol') {
-        _investments.sort((a, b) => (a['symbol'] as String).compareTo(b['symbol'] as String));
+        _investments.sort((a, b) => a.symbol.compareTo(b.symbol));
       } else if (sortBy == 'cost') {
-        _investments.sort((a, b) => (a['cost'] as double).compareTo(b['cost'] as double));
+        _investments.sort((a, b) => a.totalCost.compareTo(b.totalCost));
       } else if (sortBy == 'value') {
-        _investments.sort((a, b) => (a['currentPrice'] as double).compareTo(b['currentPrice'] as double));
+        _investments.sort((a, b) => a.currentPrice.compareTo(b.currentPrice));
       }
     });
   }
@@ -451,7 +433,7 @@ class _HomePageState extends State<HomePage> {
     if (index >= 0 && index < _investments.length) {
       setState(() {
         final removedItem = _investments.removeAt(index);
-        print("刪除了投資項目: ${removedItem['symbol']}");
+        print("刪除了投資項目: ${removedItem.symbol}");
         print("當前投資項目數量: ${_investments.length}");
       });
     }
@@ -476,9 +458,9 @@ class _HomePageState extends State<HomePage> {
         int? index;
         for (int i = 0; i < _investments.length; i++) {
           final item = _investments[i];
-          if (item['symbol'] == symbol && 
-              (item['cost'] as double) == cost && 
-              (item['currentPrice'] as double) == currentPrice) {
+          if (item.symbol == symbol &&
+              item.totalCost == cost &&
+              item.currentPrice == currentPrice) {
             index = i;
             break;
           }
