@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:developer' as developer;
 import '../../model/investment.dart';
 import 'package:investment/view/stats/StatsPage.dart';
 import 'package:investment/view/account/AccountPage.dart';
@@ -71,22 +72,22 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    print("==== initState 被調用 ====");
-    
-    // 初始化時進行數據驗證
-    print("投資項目總數: ${_investments.length}");
-    for (int i = 0; i < _investments.length; i++) {
-      print("項目 $i: ${_investments[i].symbol}");
-    }
-    
-    // 為了在熱重載時也確保黃金項目存在，我們在構造函數中進行檢查
-    // 注意：這段代碼只是為了解決當前問題，正常情況下不建議這樣做
-    
-    // 在初始化後立即確認數據已正確加載
-    print("初始化時的投資項目數量: ${_investments.length}");
-    for (int i = 0; i < _investments.length; i++) {
-      print("初始化項目 $i: ${_investments[i].symbol} (cost: ${_investments[i].totalCost})");
-    }
+    // print("==== initState 被調用 ====");
+
+    // // 初始化時進行數據驗證
+    // print("投資項目總數: ${_investments.length}");
+    // for (int i = 0; i < _investments.length; i++) {
+    //   print("項目 $i: ${_investments[i].symbol}");
+    // }
+
+    // // 為了在熱重載時也確保黃金項目存在，我們在構造函數中進行檢查
+    // // 注意：這段代碼只是為了解決當前問題，正常情況下不建議這樣做
+
+    // // 在初始化後立即確認數據已正確加載
+    // print("初始化時的投資項目數量: ${_investments.length}");
+    // for (int i = 0; i < _investments.length; i++) {
+    //   print("初始化項目 $i: ${_investments[i].symbol} (cost: ${_investments[i].totalCost})");
+    // }
   }
 
   @override
@@ -95,7 +96,7 @@ class _HomePageState extends State<HomePage> {
     
     // 避免在 build 方法中輸出日誌，因為它會在每次重建時執行
     // 只在開發時輸出一條簡短的日誌，幫助調試
-    print("重建 UI: ${_investments.length} 個投資項目");
+    // print("重建 UI: ${_investments.length} 個投資項目");
     
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
@@ -130,7 +131,7 @@ class _HomePageState extends State<HomePage> {
 
             // 創建新列表而不是修改原列表
             _investments = List.from(_investments)..add(newItem);
-            print("添加了新投資項目: ${newItem.symbol}，當前總數: ${_investments.length}");
+            developer.log('Added investment: ${newItem.symbol}, total: ${_investments.length}');
           });
           
           // 確保 UI 刷新
@@ -302,12 +303,12 @@ class _HomePageState extends State<HomePage> {
   Widget _buildPortfolioSection() {
     // 創建數據快照，確保 UI 重建時使用當前數據
     final investmentsSnapshot = List<Investment>.from(_investments);
-    print("構建投資組合區段：${investmentsSnapshot.length} 個項目");
+    // print("構建投資組合區段：${investmentsSnapshot.length} 個項目");
 
-    // 遍歷並打印所有項目，幫助調試
-    for (int i = 0; i < investmentsSnapshot.length; i++) {
-      print("  - 項目 $i: ${investmentsSnapshot[i].symbol}");
-    }
+    // // 遍歷並打印所有項目，幫助調試
+    // for (int i = 0; i < investmentsSnapshot.length; i++) {
+    //   print("  - 項目 $i: ${investmentsSnapshot[i].symbol}");
+    // }
     
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -339,21 +340,21 @@ class _HomePageState extends State<HomePage> {
                       IconButton(
                         onPressed: () {
                           // 先執行診斷
-                          print("\n===== 刷新前診斷 =====");
-                          print("投資列表長度: ${_investments.length}");
-                          for (int i = 0; i < _investments.length; i++) {
-                            print("  $i: ${_investments[i].symbol}");
-                          }
+                          // print("\n===== 刷新前診斷 =====");
+                          // print("投資列表長度: ${_investments.length}");
+                          // for (int i = 0; i < _investments.length; i++) {
+                          //   print("  $i: ${_investments[i].symbol}");
+                          // }
                           
                           // 強制刷新 UI
                           setState(() {
-                            print("手動刷新 UI");
+                            // print("手動刷新 UI");
                           });
                           
                           // 延遲執行第二次刷新，確保 UI 更新
                           Future.delayed(const Duration(milliseconds: 300), () {
                             setState(() {
-                              print("二次刷新確認 - 當前項目數: ${_investments.length}");
+                              // print("二次刷新確認 - 當前項目數: ${_investments.length}");
                             });
                           });
                         },
@@ -431,7 +432,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    print("==== didChangeDependencies 被調用 ====");
+    // print("==== didChangeDependencies 被調用 ====");
   }
   
   // 添加排序方法
@@ -452,8 +453,8 @@ class _HomePageState extends State<HomePage> {
     if (index >= 0 && index < _investments.length) {
       setState(() {
         final removedItem = _investments.removeAt(index);
-        print("刪除了投資項目: ${removedItem.symbol}");
-        print("當前投資項目數量: ${_investments.length}");
+        developer.log('Removed investment: ${removedItem.symbol}');
+        developer.log('Current investment count: ${_investments.length}');
       });
     }
   }
