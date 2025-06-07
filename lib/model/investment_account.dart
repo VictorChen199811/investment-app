@@ -27,4 +27,22 @@ class InvestmentAccount {
       note: note ?? this.note,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'currency': currency,
+      'note': note,
+    };
+  }
+
+  factory InvestmentAccount.fromMap(Map<String, dynamic> map) {
+    return InvestmentAccount(
+      id: map['id'] as int,
+      name: map['name'] as String,
+      currency: map['currency'] as String,
+      note: map['note'] as String?,
+    );
+  }
 }
