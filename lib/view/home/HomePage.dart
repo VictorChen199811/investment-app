@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:investment/view/stats/StatsPage.dart';
+import 'package:investment/view/account/AccountPage.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -121,7 +123,23 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: '帳戶'),
         ],
         onTap: (index) {
-          // TODO: 根據 index 跳轉到對應頁面
+          switch (index) {
+            case 0:
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StatsPage()),
+              );
+              break;
+            case 1:
+              // 已在投資頁，無需跳轉
+              break;
+            case 2:
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AccountPage()),
+              );
+              break;
+          }
         },
       ),
     );
