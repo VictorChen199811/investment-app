@@ -10,6 +10,7 @@ class Investment {
   final double fee;          // 手續費
   final double? tax;         // 稅費（可選）
   final double? otherCost;   // 其他成本（可選）
+  final double currentPrice; // 當前市價
   final DateTime buyDate;    // 買入日期
   final String? note;        // 備註
 
@@ -22,6 +23,7 @@ class Investment {
     required this.fee,
     this.tax,
     this.otherCost,
+    required this.currentPrice,
     required this.buyDate,
     this.note,
   });
@@ -39,6 +41,7 @@ class Investment {
     double? fee,
     double? tax,
     double? otherCost,
+    double? currentPrice,
     DateTime? buyDate,
     String? note,
   }) {
@@ -51,6 +54,7 @@ class Investment {
       fee: fee ?? this.fee,
       tax: tax ?? this.tax,
       otherCost: otherCost ?? this.otherCost,
+      currentPrice: currentPrice ?? this.currentPrice,
       buyDate: buyDate ?? this.buyDate,
       note: note ?? this.note,
     );
