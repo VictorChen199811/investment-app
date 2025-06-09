@@ -43,4 +43,31 @@ class FundingRecord {
       note: note ?? this.note,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'accountId': accountId,
+      'transferDate': transferDate.millisecondsSinceEpoch,
+      'sourceAmount': sourceAmount,
+      'exchangeRate': exchangeRate,
+      'targetAmount': targetAmount,
+      'wireFee': wireFee,
+      'note': note,
+    };
+  }
+
+  factory FundingRecord.fromMap(Map<String, dynamic> map) {
+    return FundingRecord(
+      id: map['id'] as int,
+      accountId: map['accountId'] as int,
+      transferDate:
+          DateTime.fromMillisecondsSinceEpoch(map['transferDate'] as int),
+      sourceAmount: (map['sourceAmount'] as num).toDouble(),
+      exchangeRate: (map['exchangeRate'] as num).toDouble(),
+      targetAmount: (map['targetAmount'] as num).toDouble(),
+      wireFee: (map['wireFee'] as num).toDouble(),
+      note: map['note'] as String?,
+    );
+  }
 }

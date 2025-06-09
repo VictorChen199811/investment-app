@@ -59,4 +59,36 @@ class Investment {
       note: note ?? this.note,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'accountId': accountId,
+      'symbol': symbol,
+      'buyPrice': buyPrice,
+      'quantity': quantity,
+      'fee': fee,
+      'tax': tax,
+      'otherCost': otherCost,
+      'currentPrice': currentPrice,
+      'buyDate': buyDate.millisecondsSinceEpoch,
+      'note': note,
+    };
+  }
+
+  factory Investment.fromMap(Map<String, dynamic> map) {
+    return Investment(
+      id: map['id'] as int,
+      accountId: map['accountId'] as int,
+      symbol: map['symbol'] as String,
+      buyPrice: (map['buyPrice'] as num).toDouble(),
+      quantity: map['quantity'] as int,
+      fee: (map['fee'] as num).toDouble(),
+      tax: (map['tax'] as num?)?.toDouble(),
+      otherCost: (map['otherCost'] as num?)?.toDouble(),
+      currentPrice: (map['currentPrice'] as num).toDouble(),
+      buyDate: DateTime.fromMillisecondsSinceEpoch(map['buyDate'] as int),
+      note: map['note'] as String?,
+    );
+  }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../model/investment.dart';
 import '../../model/investment_account.dart';
+import '../../database/database_helper.dart';
 
 
 class AccountPage extends StatefulWidget {
@@ -11,49 +12,36 @@ class AccountPage extends StatefulWidget {
 }
 
 class _AccountPageState extends State<AccountPage> {
-  late final List<InvestmentAccount> _accounts;
-  late final List<Investment> _investments;
+  final DatabaseHelper _db = DatabaseHelper();
+  List<InvestmentAccount> _accounts = [];
+  Map<int, List<Investment>> _investments = {};
 
   @override
   void initState() {
     super.initState();
-    _accounts = [
-      InvestmentAccount(id: 1, name: 'TWD 證券帳戶', currency: 'TWD'),
-      InvestmentAccount(id: 2, name: 'USD 經紀帳戶', currency: 'USD'),
-    ];
+    _loadData();
+  }
 
-    _investments = [
-      Investment(
-        id: 1,
-        accountId: 1,
-        symbol: 'AAPL',
-        buyPrice: 2500,
-        quantity: 1,
-        fee: 0,
-        currentPrice: 2587.5,
-        buyDate: DateTime.now(),
-      ),
-      Investment(
-        id: 2,
-        accountId: 1,
-        symbol: 'TSMC',
-        buyPrice: 3700,
-        quantity: 1,
-        fee: 0,
-        currentPrice: 3655.6,
-        buyDate: DateTime.now(),
-      ),
-      Investment(
-        id: 3,
-        accountId: 2,
-        symbol: 'MSFT',
-        buyPrice: 150,
-        quantity: 1,
-        fee: 0,
-        currentPrice: 162.5,
-        buyDate: DateTime.now(),
-      ),
-    ];
+  Future<void> _loadData() async {
+    var accounts = await _db.getAccounts();
+    if (accounts.isEmpty) {
+      await _db.insertAccount(
+          InvestmentAccount(id: 0, name: 'TWD 證券帳戶', currency: 'TWD'));
+      await _db.insertAccount(
+          InvestmentAccount(id: 0, name: 'USD 經紀帳戶', currency: 'USD'));
+      accounts = await _db.getAccounts();
+    }
+
+    final investmentMap = <int, List<Investment>>{};
+    for (final acc in accounts) {
+      final invs = await _db.getInvestments(acc.id);
+      investmentMap[acc.id] = invs;
+    }
+
+    setState(() {
+      _accounts = accounts;
+      _investments = investmentMap;
+    });
   }
 
   @override
@@ -66,9 +54,7 @@ class _AccountPageState extends State<AccountPage> {
         itemCount: _accounts.length,
         itemBuilder: (context, index) {
           final account = _accounts[index];
-          final investments = _investments
-              .where((inv) => inv.accountId == account.id)
-              .toList();
+          final investments = _investments[account.id] ?? [];
 
           return ExpansionTile(
             title: Text('${account.name} (${account.currency})'),
