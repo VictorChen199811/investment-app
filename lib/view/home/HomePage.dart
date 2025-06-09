@@ -5,6 +5,7 @@ import '../../model/investment_account.dart';
 import '../../database/database_helper.dart';
 import 'package:investment/view/stats/StatsPage.dart';
 import 'package:investment/view/account/AccountPage.dart';
+import '../investment/InvestmentFormPage.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -83,24 +84,17 @@ class _HomePageState extends State<HomePage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final newItem = Investment(
-            id: 0,
-            accountId: 1,
-            symbol: '新投資${_investments.length + 1}',
-            buyPrice: 1000.0 + (_investments.length * 500),
-            quantity: 1,
-            fee: 0,
-            currentPrice: 1100.0 + (_investments.length * 550),
-            buyDate: DateTime.now(),
+          final result = await Navigator.push<Investment?>(
+            context,
+            MaterialPageRoute(builder: (_) => const InvestmentFormPage()),
           );
 
-          final id = await _db.insertInvestment(newItem);
-
-          setState(() {
-            _investments = List.from(_investments)
-              ..add(newItem.copyWith(id: id));
-          });
-          developer.log('Added investment: ${newItem.symbol}, total: ${_investments.length}');
+          if (result != null) {
+            setState(() {
+              _investments = List.from(_investments)..add(result);
+            });
+            developer.log('Added investment: ${result.symbol}, total: ${_investments.length}');
+          }
         },
         icon: const Icon(Icons.add),
         label: const Text('新增投資'),
