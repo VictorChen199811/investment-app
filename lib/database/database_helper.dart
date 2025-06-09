@@ -23,8 +23,9 @@ class DatabaseHelper {
     final path = join(dbPath, 'investment.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -34,6 +35,7 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         currency TEXT,
+        category TEXT,
         note TEXT
       )
     ''');
@@ -68,6 +70,12 @@ class DatabaseHelper {
     ''');
   }
 
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE accounts ADD COLUMN category TEXT');
+    }
+  }
+
   Future<int> insertAccount(InvestmentAccount account) async {
     final db = await database;
     return db.insert('accounts', account.toMap());
@@ -77,6 +85,17 @@ class DatabaseHelper {
     final db = await database;
     final result = await db.query('accounts');
     return result.map((e) => InvestmentAccount.fromMap(e)).toList();
+  }
+
+  Future<int> updateAccount(InvestmentAccount account) async {
+    final db = await database;
+    return db.update('accounts', account.toMap(),
+        where: 'id = ?', whereArgs: [account.id]);
+  }
+
+  Future<int> deleteAccount(int id) async {
+    final db = await database;
+    return db.delete('accounts', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> insertInvestment(Investment investment) async {
