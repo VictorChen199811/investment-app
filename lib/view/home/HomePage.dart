@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:developer' as developer;
 import '../../model/investment.dart';
+import '../../model/investment_account.dart';
+import '../../database/database_helper.dart';
 import 'package:investment/view/stats/StatsPage.dart';
 import 'package:investment/view/account/AccountPage.dart';
+import '../investment/InvestmentFormPage.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -13,66 +16,16 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final DatabaseHelper _db = DatabaseHelper();
   String? _selectedAccount = 'TWD Securities Account';
 
-  // 直接定義並初始化，這樣在熱重載時會保留最新數據
-  List<Investment> _investments = [
-    Investment(
-      id: 1,
-      accountId: 1,
-      symbol: 'AAPL',
-      buyPrice: 2500.0,
-      quantity: 1,
-      fee: 0,
-      currentPrice: 2587.5,
-      buyDate: DateTime.now(),
-    ),
-    Investment(
-      id: 2,
-      accountId: 1,
-      symbol: 'TSMC',
-      buyPrice: 3700.0,
-      quantity: 1,
-      fee: 0,
-      currentPrice: 3655.6,
-      buyDate: DateTime.now(),
-    ),
-    Investment(
-      id: 3,
-      accountId: 1,
-      symbol: '0050',
-      buyPrice: 3500.0,
-      quantity: 1,
-      fee: 0,
-      currentPrice: 3937.5,
-      buyDate: DateTime.now(),
-    ),
-    Investment(
-      id: 4,
-      accountId: 1,
-      symbol: '黃金',
-      buyPrice: 3200.0,
-      quantity: 1,
-      fee: 0,
-      currentPrice: 3711.5,
-      buyDate: DateTime.now(),
-    ),
-    Investment(
-      id: 5,
-      accountId: 1,
-      symbol: '黃金',
-      buyPrice: 1100.0,
-      quantity: 1,
-      fee: 0,
-      currentPrice: 3711.5,
-      buyDate: DateTime.now(),
-    ),
-  ];
+  // 以空列表初始化，資料將從資料庫載入
+  List<Investment> _investments = [];
   
   @override
   void initState() {
     super.initState();
-    // print("==== initState 被調用 ====");
+    _loadInvestments();
 
     // // 初始化時進行數據驗證
     // print("投資項目總數: ${_investments.length}");
@@ -88,6 +41,21 @@ class _HomePageState extends State<HomePage> {
     // for (int i = 0; i < _investments.length; i++) {
     //   print("初始化項目 $i: ${_investments[i].symbol} (cost: ${_investments[i].totalCost})");
     // }
+  }
+
+  Future<void> _loadInvestments() async {
+    var accounts = await _db.getAccounts();
+    if (accounts.isEmpty) {
+      await _db.insertAccount(
+          InvestmentAccount(id: 0, name: 'TWD 證券帳戶', currency: 'TWD'));
+      await _db.insertAccount(
+          InvestmentAccount(id: 0, name: 'USD 經紀帳戶', currency: 'USD'));
+    }
+
+    final data = await _db.getInvestments(1);
+    setState(() {
+      _investments = data;
+    });
   }
 
   @override
@@ -115,28 +83,17 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // 創建新列表引用，確保 Flutter 檢測到變化
-          setState(() {
-            final newItem = Investment(
-              id: _investments.length + 1,
-              accountId: 1,
-              symbol: '新投資${_investments.length + 1}',
-              buyPrice: 1000.0 + (_investments.length * 500),
-              quantity: 1,
-              fee: 0,
-              currentPrice: 1100.0 + (_investments.length * 550),
-              buyDate: DateTime.now(),
-            );
+        onPressed: () async {
+          final result = await Navigator.push<Investment?>(
+            context,
+            MaterialPageRoute(builder: (_) => const InvestmentFormPage()),
+          );
 
-            // 創建新列表而不是修改原列表
-            _investments = List.from(_investments)..add(newItem);
-            developer.log('Added investment: ${newItem.symbol}, total: ${_investments.length}');
-          });
-          
-          // 確保 UI 刷新
-          if (mounted) {
-            Future.microtask(() => setState(() {}));
+          if (result != null) {
+            setState(() {
+              _investments = List.from(_investments)..add(result);
+            });
+            developer.log('Added investment: ${result.symbol}, total: ${_investments.length}');
           }
         },
         icon: const Icon(Icons.add),
@@ -449,10 +406,12 @@ class _HomePageState extends State<HomePage> {
   }
   
   // 刪除投資項目
-  void _removeInvestment(int index) {
+  Future<void> _removeInvestment(int index) async {
     if (index >= 0 && index < _investments.length) {
+      final removedItem = _investments[index];
+      await _db.deleteInvestment(removedItem.id);
       setState(() {
-        final removedItem = _investments.removeAt(index);
+        _investments.removeAt(index);
         developer.log('Removed investment: ${removedItem.symbol}');
         developer.log('Current investment count: ${_investments.length}');
       });
@@ -499,8 +458,8 @@ class _HomePageState extends State<HomePage> {
                   child: Text('取消'),
                 ),
                 TextButton(
-                  onPressed: () {
-                    _removeInvestment(index!);
+                  onPressed: () async {
+                    await _removeInvestment(index!);
                     Navigator.pop(context);
                   },
                   child: Text('刪除'),

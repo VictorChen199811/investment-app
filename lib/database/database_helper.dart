@@ -91,6 +91,11 @@ class DatabaseHelper {
     return result.map((e) => Investment.fromMap(e)).toList();
   }
 
+  Future<int> deleteInvestment(int id) async {
+    final db = await database;
+    return db.delete('investments', where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<int> insertFundingRecord(FundingRecord record) async {
     final db = await database;
     return db.insert('funding_records', record.toMap());
