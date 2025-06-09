@@ -15,6 +15,8 @@ class _AccountPageState extends State<AccountPage> {
   final DatabaseHelper _db = DatabaseHelper();
   List<InvestmentAccount> _accounts = [];
   Map<int, List<Investment>> _investments = {};
+  String _name = '';
+  String _category = '美股';
 
   @override
   void initState() {
@@ -23,14 +25,7 @@ class _AccountPageState extends State<AccountPage> {
   }
 
   Future<void> _loadData() async {
-    var accounts = await _db.getAccounts();
-    if (accounts.isEmpty) {
-      await _db.insertAccount(
-          InvestmentAccount(id: 0, name: 'TWD 證券帳戶', currency: 'TWD'));
-      await _db.insertAccount(
-          InvestmentAccount(id: 0, name: 'USD 經紀帳戶', currency: 'USD'));
-      accounts = await _db.getAccounts();
-    }
+    final accounts = await _db.getAccounts();
 
     final investmentMap = <int, List<Investment>>{};
     for (final acc in accounts) {
@@ -42,6 +37,70 @@ class _AccountPageState extends State<AccountPage> {
       _accounts = accounts;
       _investments = investmentMap;
     });
+  }
+
+  Future<void> _showAddDialog() async {
+    final nameController = TextEditingController();
+    String category = '美股';
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('新增帳戶'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: '帳戶名稱'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: category,
+              decoration: const InputDecoration(labelText: '帳戶類別'),
+              items: const [
+                DropdownMenuItem(value: '美股', child: Text('美股')),
+                DropdownMenuItem(value: '台股', child: Text('台股')),
+                DropdownMenuItem(value: 'other', child: Text('Other')),
+              ],
+              onChanged: (v) => category = v ?? '美股',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameController.text.trim();
+              if (name.isEmpty) return;
+              final currency = _currencyForCategory(category);
+              await _db.insertAccount(
+                InvestmentAccount(
+                    id: 0, name: name, currency: currency, category: category),
+              );
+              if (mounted) {
+                Navigator.pop(context);
+                await _loadData();
+              }
+            },
+            child: const Text('儲存'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _currencyForCategory(String category) {
+    switch (category) {
+      case '台股':
+        return 'TWD';
+      case '美股':
+        return 'USD';
+      default:
+        return 'USD';
+    }
   }
 
   @override
@@ -70,6 +129,10 @@ class _AccountPageState extends State<AccountPage> {
                 .toList(),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddDialog,
+        child: const Icon(Icons.add),
       ),
     );
   }

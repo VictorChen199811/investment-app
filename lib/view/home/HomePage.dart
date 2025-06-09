@@ -45,12 +45,6 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadInvestments() async {
     var accounts = await _db.getAccounts();
-    if (accounts.isEmpty) {
-      await _db.insertAccount(
-          InvestmentAccount(id: 0, name: 'TWD 證券帳戶', currency: 'TWD'));
-      await _db.insertAccount(
-          InvestmentAccount(id: 0, name: 'USD 經紀帳戶', currency: 'USD'));
-    }
 
     final data = await _db.getInvestments(1);
     setState(() {
