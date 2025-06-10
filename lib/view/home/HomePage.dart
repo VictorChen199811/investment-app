@@ -17,7 +17,10 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final DatabaseHelper _db = DatabaseHelper();
-  String? _selectedAccount = 'TWD Securities Account';
+
+  // 從資料庫載入的帳戶列表
+  List<InvestmentAccount> _accounts = [];
+  int? _selectedAccountId;
 
   // 以空列表初始化，資料將從資料庫載入
   List<Investment> _investments = [];
@@ -25,7 +28,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _loadInvestments();
+    _loadAccounts();
 
     // // 初始化時進行數據驗證
     // print("投資項目總數: ${_investments.length}");
@@ -43,10 +46,23 @@ class _HomePageState extends State<HomePage> {
     // }
   }
 
-  Future<void> _loadInvestments() async {
-    var accounts = await _db.getAccounts();
+  Future<void> _loadAccounts() async {
+    final accounts = await _db.getAccounts();
+    int? accountId;
+    if (accounts.isNotEmpty) {
+      accountId = accounts.first.id;
+    }
+    setState(() {
+      _accounts = accounts;
+      _selectedAccountId = accountId;
+    });
+    if (accountId != null) {
+      await _loadInvestments(accountId);
+    }
+  }
 
-    final data = await _db.getInvestments(1);
+  Future<void> _loadInvestments(int accountId) async {
+    final data = await _db.getInvestments(accountId);
     setState(() {
       _investments = data;
     });
@@ -55,27 +71,34 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
-    // 避免在 build 方法中輸出日誌，因為它會在每次重建時執行
-    // 只在開發時輸出一條簡短的日誌，幫助調試
-    // print("重建 UI: ${_investments.length} 個投資項目");
-    
-    return Scaffold(
-      backgroundColor: theme.colorScheme.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: theme.colorScheme.background,
+        body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(),
               _buildSummaryCards(),
-              _buildPortfolioSection(),
-              // 添加底部空間，防止內容被浮動按鈕遮擋
-              const SizedBox(height: 80),
+              const TabBar(
+                tabs: [
+                  Tab(text: '交易記錄'),
+                  Tab(text: '圖表分析'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _buildTransactionList(),
+                    _buildChartAnalysis(),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
-      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.push<Investment?>(
@@ -95,36 +118,37 @@ class _HomePageState extends State<HomePage> {
         elevation: 4,
       ),
       // 添加底部間距，避免浮動按鈕擋住內容
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 1,
-        selectedItemColor: theme.colorScheme.primary,
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: '分析'),
-          BottomNavigationBarItem(icon: Icon(Icons.list), label: '投資'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '帳戶'),
-        ],
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const StatsPage()),
-              );
-              break;
-            case 1:
-              // 已在投資頁，無需跳轉
-              break;
-            case 2:
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AccountPage()),
-              );
-              break;
-          }
-        },
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: 1,
+          selectedItemColor: theme.colorScheme.primary,
+          unselectedItemColor: Colors.grey,
+          showUnselectedLabels: true,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: '分析'),
+            BottomNavigationBarItem(icon: Icon(Icons.list), label: '投資'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: '帳戶'),
+          ],
+          onTap: (index) {
+            switch (index) {
+              case 0:
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StatsPage()),
+                );
+                break;
+              case 1:
+                // 已在投資頁，無需跳轉
+                break;
+              case 2:
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AccountPage()),
+                );
+                break;
+            }
+          },
+        ),
       ),
     );
   }
@@ -150,27 +174,28 @@ class _HomePageState extends State<HomePage> {
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
+              child: DropdownButton<int>(
                 isExpanded: true,
-                value: _selectedAccount,
+                value: _selectedAccountId,
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 borderRadius: BorderRadius.circular(12),
                 icon: const Icon(Icons.keyboard_arrow_down),
                 onChanged: (value) {
                   setState(() {
-                    _selectedAccount = value;
+                    _selectedAccountId = value;
                   });
+                  if (value != null) {
+                    _loadInvestments(value);
+                  }
                 },
-                items: const [
-                  DropdownMenuItem(
-                    value: 'TWD Securities Account',
-                    child: Text('TWD 證券帳戶'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'USD Brokerage Account',
-                    child: Text('USD 經紀帳戶'),
-                  ),
-                ],
+                items: _accounts
+                    .map(
+                      (acc) => DropdownMenuItem(
+                        value: acc.id,
+                        child: Text(acc.name),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),
@@ -180,46 +205,37 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildSummaryCards() {
-    // 使用更安全的方式計算總額
     double totalInvestment = _calculateTotalInvestment();
     double currentValue = _calculateCurrentValue();
-    double profitLoss = currentValue - totalInvestment;
-    
-    return Container(
+    double profit = currentValue - totalInvestment;
+    double returnRate = _calculateReturnRate();
+
+    Color profitColor = profit >= 0 ? Colors.green : Colors.red;
+    Color rateColor = returnRate >= 0 ? Colors.green : Colors.red;
+
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Text(
-            '投資概覽',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          Expanded(
+            child: _buildSummaryCard('總投資部位', totalInvestment, Colors.blue),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSummaryCard('總投資', totalInvestment, Colors.blue),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildSummaryCard('目前價值', currentValue, Colors.green),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildSummaryCard('收益/損失', profitLoss, Colors.orange),
-              ),
-            ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildSummaryCard('總收益', profit, profitColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildSummaryCard('報酬率', returnRate, rateColor,
+                isPercentage: true),
           ),
         ],
       ),
     );
-    
   }
 
-  Widget _buildSummaryCard(String title, double amount, Color color) {
+  Widget _buildSummaryCard(String title, double amount, Color color,
+      {bool isPercentage = false}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -239,7 +255,9 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 8),
           Text(
-            '\$${amount.toStringAsFixed(0)}',
+            isPercentage
+                ? '${amount.toStringAsFixed(1)}%'
+                : 'NT\$${amount.toStringAsFixed(0)}',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -251,107 +269,15 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildPortfolioSection() {
-    // 創建數據快照，確保 UI 重建時使用當前數據
-    final investmentsSnapshot = List<Investment>.from(_investments);
-    // print("構建投資組合區段：${investmentsSnapshot.length} 個項目");
-
-    // // 遍歷並打印所有項目，幫助調試
-    // for (int i = 0; i < investmentsSnapshot.length; i++) {
-    //   print("  - 項目 $i: ${investmentsSnapshot[i].symbol}");
-    // }
-    
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
-                  Text(
-                    '投資組合',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  // 視覺標記，顯示黃金項目狀態
-                ],
-              ),
-              Row(
-                children: [
-                  // 添加刷新按鈕
-                  // 添加兩個按鈕：刷新和重置
-                  Row(
-                    children: [
-                      // 原有的刷新按鈕
-                      IconButton(
-                        onPressed: () {
-                          // 先執行診斷
-                          // print("\n===== 刷新前診斷 =====");
-                          // print("投資列表長度: ${_investments.length}");
-                          // for (int i = 0; i < _investments.length; i++) {
-                          //   print("  $i: ${_investments[i].symbol}");
-                          // }
-                          
-                          // 強制刷新 UI
-                          setState(() {
-                            // print("手動刷新 UI");
-                          });
-                          
-                          // 延遲執行第二次刷新，確保 UI 更新
-                          Future.delayed(const Duration(milliseconds: 300), () {
-                            setState(() {
-                              // print("二次刷新確認 - 當前項目數: ${_investments.length}");
-                            });
-                          });
-                        },
-                        icon: const Icon(Icons.refresh, size: 18),
-                        tooltip: '刷新列表',
-                      ),
-                    ],
-                  ),
-                  TextButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.sort, size: 18),
-                    label: const Text('排序'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // 使用 Column 和 map 方法替代 ListView，避免在 SingleChildScrollView 中嵌套可滾動視圖
-          // 重新構建投資列表，使用最直接的方式處理數據
-          Column(
-            children: List.generate(investmentsSnapshot.length, (index) {
-              // 使用快照數據而不是直接引用 _investments
-              final Investment item = investmentsSnapshot[index];
-              final symbol = item.symbol;
-
-              final double cost = item.totalCost;
-              final double currentPrice = item.currentPrice;
-              
-              return Column(
-                key: ValueKey('investment-$index-$symbol'), // 添加唯一 Key
-                children: [
-                  _buildInvestmentCard(
-                    key: ValueKey(symbol), // 為卡片添加 Key
-                    symbol: symbol,
-                    cost: cost,
-                    currentPrice: currentPrice,
-                  ),
-                  if (index < _investments.length - 1)
-                    const SizedBox(height: 12),
-                ],
-              );
-            }),
-          ),
-        ],
-      ),
+  Widget _buildTransactionList() {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: _investments.length,
+      itemBuilder: (context, index) {
+        final item = _investments[index];
+        return _buildTransactionTile(item);
+      },
+      separatorBuilder: (context, index) => const Divider(),
     );
   }
 
@@ -371,6 +297,12 @@ class _HomePageState extends State<HomePage> {
       total += investment.currentPrice;
     }
     return total;
+  }
+
+  double _calculateReturnRate() {
+    double totalCost = _calculateTotalInvestment();
+    if (totalCost == 0) return 0;
+    return ((_calculateCurrentValue() - totalCost) / totalCost) * 100;
   }
   
   // 計算投資項目的漲跌幅度 - 更加穩健的實現
@@ -410,6 +342,60 @@ class _HomePageState extends State<HomePage> {
         developer.log('Current investment count: ${_investments.length}');
       });
     }
+  }
+
+  Widget _buildTransactionTile(Investment item) {
+    final amount = item.totalCost;
+    final dateStr =
+        '${item.buyDate.year}-${item.buyDate.month.toString().padLeft(2, '0')}-${item.buyDate.day.toString().padLeft(2, '0')}';
+    return ListTile(
+      leading: const Icon(Icons.swap_vert),
+      title: Text(item.symbol),
+      subtitle: const Text('買入'),
+      trailing: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text('金額 NT\$${amount.toStringAsFixed(0)}'),
+          Text('數量 ${item.quantity}'),
+          Text(
+            dateStr,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartAnalysis() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Container(
+            height: 200,
+            color: Colors.blueGrey.withOpacity(0.1),
+            alignment: Alignment.center,
+            child: const Text('折線圖 Placeholder'),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 200,
+            color: Colors.blueGrey.withOpacity(0.1),
+            alignment: Alignment.center,
+            child: const Text('圓餅圖 Placeholder'),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 200,
+            color: Colors.blueGrey.withOpacity(0.1),
+            alignment: Alignment.center,
+            child: const Text('長條圖 Placeholder'),
+          ),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
   }
   
   Widget _buildInvestmentCard({
