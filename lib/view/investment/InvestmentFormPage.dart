@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../database/database_helper.dart';
 import '../../model/investment.dart';
+import '../../model/investment_account.dart';
 
 /// A simple form page to create a new [Investment].
 class InvestmentFormPage extends StatefulWidget {
-  const InvestmentFormPage({super.key});
+  final int? initialAccountId;
+
+  const InvestmentFormPage({super.key, this.initialAccountId});
 
   @override
   State<InvestmentFormPage> createState() => _InvestmentFormPageState();
@@ -18,6 +21,33 @@ class _InvestmentFormPageState extends State<InvestmentFormPage> {
 
   final DatabaseHelper _db = DatabaseHelper();
 
+  List<InvestmentAccount> _accounts = [];
+  InvestmentAccount? _selectedAccount;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAccounts();
+  }
+
+  Future<void> _loadAccounts() async {
+    final accounts = await _db.getAccounts();
+    InvestmentAccount? selected;
+    if (accounts.isNotEmpty) {
+      if (widget.initialAccountId != null) {
+        selected = accounts.firstWhere(
+            (a) => a.id == widget.initialAccountId,
+            orElse: () => accounts.first);
+      } else {
+        selected = accounts.first;
+      }
+    }
+    setState(() {
+      _accounts = accounts;
+      _selectedAccount = selected;
+    });
+  }
+
   @override
   void dispose() {
     _symbolController.dispose();
@@ -28,6 +58,7 @@ class _InvestmentFormPageState extends State<InvestmentFormPage> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedAccount == null) return;
 
     final symbol = _symbolController.text.trim();
     final quantity = int.parse(_quantityController.text.trim());
@@ -35,7 +66,7 @@ class _InvestmentFormPageState extends State<InvestmentFormPage> {
 
     final investment = Investment(
       id: 0,
-      accountId: 1,
+      accountId: _selectedAccount!.id,
       symbol: symbol,
       buyPrice: price,
       quantity: quantity,
@@ -61,6 +92,21 @@ class _InvestmentFormPageState extends State<InvestmentFormPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              DropdownButtonFormField<InvestmentAccount>(
+                value: _selectedAccount,
+                decoration: const InputDecoration(labelText: '投資帳戶'),
+                items: _accounts
+                    .map(
+                      (acc) => DropdownMenuItem(
+                        value: acc,
+                        child: Text(acc.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() {
+                  _selectedAccount = value;
+                }),
+              ),
               TextFormField(
                 controller: _symbolController,
                 decoration: const InputDecoration(labelText: '投資標的'),
