@@ -114,9 +114,11 @@ class _HomePageState extends State<HomePage> {
           );
 
           if (result != null) {
-            setState(() {
-              _investments = List.from(_investments)..add(result);
-            });
+            if (result.accountId == _selectedAccount?.id) {
+              setState(() {
+                _investments = List.from(_investments)..add(result);
+              });
+            }
             developer.log('Added investment: ${result.symbol}, total: ${_investments.length}');
           }
         },
@@ -593,6 +595,6 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-              ));
+    );
   }
 }
