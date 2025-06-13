@@ -114,9 +114,11 @@ class _HomePageState extends State<HomePage> {
           );
 
           if (result != null) {
-            setState(() {
-              _investments = List.from(_investments)..add(result);
-            });
+            if (result.accountId == _selectedAccount?.id) {
+              setState(() {
+                _investments = List.from(_investments)..add(result);
+              });
+            }
             developer.log('Added investment: ${result.symbol}, total: ${_investments.length}');
           }
         },
@@ -282,7 +284,7 @@ class _HomePageState extends State<HomePage> {
       itemCount: _investments.length,
       itemBuilder: (context, index) {
         final item = _investments[index];
-        return _buildTransactionTile(item);
+        return _buildTransactionTile(item, index);
       },
       separatorBuilder: (context, index) => const Divider(),
     );
@@ -351,11 +353,34 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildTransactionTile(Investment item) {
+  Widget _buildTransactionTile(Investment item, int index) {
     final amount = item.totalCost;
     final dateStr =
         '${item.buyDate.year}-${item.buyDate.month.toString().padLeft(2, '0')}-${item.buyDate.day.toString().padLeft(2, '0')}';
     return ListTile(
+      onLongPress: () {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('刪除投資'),
+            content: Text('確定要刪除 ${item.symbol} 嗎？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await _removeInvestment(index);
+                  Navigator.pop(context);
+                },
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('刪除'),
+              ),
+            ],
+          ),
+        );
+      },
       leading: const Icon(Icons.swap_vert),
       title: Text(item.symbol),
       subtitle: const Text('買入'),
@@ -593,6 +618,6 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-              ));
+    );
   }
 }
