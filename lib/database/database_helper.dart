@@ -4,13 +4,26 @@ import 'package:path/path.dart';
 import '../model/investment_account.dart';
 import '../model/investment.dart';
 import '../model/funding_record.dart';
+import 'migration_manager.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._internal();
   factory DatabaseHelper() => instance;
-  DatabaseHelper._internal();
+  DatabaseHelper._internal() {
+    _initMigrationManager();
+  }
 
   Database? _database;
+  late final MigrationManager _migrationManager;
+
+  void _initMigrationManager() {
+    // 初始化遷移管理器，註冊所有遷移
+    _migrationManager = MigrationManager([
+      CreateAccountsTableMigration(),
+      AddCategoryToAccountsMigration(),
+      // 在這裡添加新的遷移
+    ]);
+  }
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -23,57 +36,16 @@ class DatabaseHelper {
     final path = join(dbPath, 'investment.db');
     return openDatabase(
       path,
-      version: 2,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
+      version: _migrationManager.latestVersion,
+      onCreate: (db, version) async {
+        // 創建新數據庫時，執行所有遷移
+        await _migrationManager.migrate(db, 0, version);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        // 升級數據庫時，執行需要的遷移
+        await _migrationManager.migrate(db, oldVersion, newVersion);
+      },
     );
-  }
-
-  Future _onCreate(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE accounts(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        currency TEXT,
-        category TEXT,
-        note TEXT
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE investments(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        accountId INTEGER,
-        symbol TEXT,
-        buyPrice REAL,
-        quantity INTEGER,
-        fee REAL,
-        tax REAL,
-        otherCost REAL,
-        currentPrice REAL,
-        buyDate INTEGER,
-        note TEXT
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE funding_records(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        accountId INTEGER,
-        transferDate INTEGER,
-        sourceAmount REAL,
-        exchangeRate REAL,
-        targetAmount REAL,
-        wireFee REAL,
-        note TEXT
-      )
-    ''');
-  }
-
-  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute('ALTER TABLE accounts ADD COLUMN category TEXT');
-    }
   }
 
   Future<int> insertAccount(InvestmentAccount account) async {
