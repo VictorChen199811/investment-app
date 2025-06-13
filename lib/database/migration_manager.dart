@@ -37,7 +37,7 @@ class MigrationManager {
       
       // 按順序執行遷移
       for (final migration in migrationsToRun) {
-        await migration.up(txn);
+        await migration.up(txn as Database);
       }
     });
   }
