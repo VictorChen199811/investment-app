@@ -7,7 +7,6 @@ import 'package:investment/view/stats/StatsPage.dart';
 import 'package:investment/view/account/AccountPage.dart';
 import '../investment/InvestmentFormPage.dart';
 
-
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -26,7 +25,7 @@ class _HomePageState extends State<HomePage> {
 
   // 以空列表初始化，資料將從資料庫載入
   List<Investment> _investments = [];
-  
+
   @override
   void initState() {
     super.initState();
@@ -102,31 +101,32 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push<Investment?>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => InvestmentFormPage(
-                initialAccountId: _selectedAccount?.id,
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () async {
+            final result = await Navigator.push<Investment?>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => InvestmentFormPage(
+                  initialAccountId: _selectedAccount?.id,
+                ),
               ),
-            ),
-          );
+            );
 
-          if (result != null) {
-            if (result.accountId == _selectedAccount?.id) {
-              setState(() {
-                _investments = List.from(_investments)..add(result);
-              });
+            if (result != null) {
+              if (result.accountId == _selectedAccount?.id) {
+                setState(() {
+                  _investments = List.from(_investments)..add(result);
+                });
+              }
+              developer.log(
+                  'Added investment: ${result.symbol}, total: ${_investments.length}');
             }
-            developer.log('Added investment: ${result.symbol}, total: ${_investments.length}');
-          }
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('新增投資'),
-        elevation: 4,
-      ),
-      // 添加底部間距，避免浮動按鈕擋住內容
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('新增投資'),
+          elevation: 4,
+        ),
+        // 添加底部間距，避免浮動按鈕擋住內容
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: 1,
@@ -313,20 +313,20 @@ class _HomePageState extends State<HomePage> {
     if (totalCost == 0) return 0;
     return ((_calculateCurrentValue() - totalCost) / totalCost) * 100;
   }
-  
+
   // 計算投資項目的漲跌幅度 - 更加穩健的實現
   double _calculateChangePercentage(double cost, double currentPrice) {
     // 防止除以零錯誤
     if (cost <= 0) return 0;
     return ((currentPrice - cost) / cost) * 100;
   }
-  
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // print("==== didChangeDependencies 被調用 ====");
   }
-  
+
   // 添加排序方法
   void _sortInvestments(String sortBy) {
     setState(() {
@@ -339,7 +339,7 @@ class _HomePageState extends State<HomePage> {
       }
     });
   }
-  
+
   // 刪除投資項目
   Future<void> _removeInvestment(int index) async {
     if (index >= 0 && index < _investments.length) {
@@ -429,7 +429,7 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   Widget _buildInvestmentCard({
     Key? key, // 添加 key 參數
     required String symbol,
@@ -442,182 +442,182 @@ class _HomePageState extends State<HomePage> {
     final isPositive = changePercentage >= 0;
     final changeColor = isPositive ? Colors.green : Colors.red;
     final changeIcon = isPositive ? Icons.arrow_upward : Icons.arrow_downward;
-  
+
     return GestureDetector(
-      onLongPress: () {
-        // 查找當前項目的索引
-        int? index;
-        for (int i = 0; i < _investments.length; i++) {
-          final item = _investments[i];
-          if (item.symbol == symbol &&
-              item.totalCost == cost &&
-              item.currentPrice == currentPrice) {
-            index = i;
-            break;
+        onLongPress: () {
+          // 查找當前項目的索引
+          int? index;
+          for (int i = 0; i < _investments.length; i++) {
+            final item = _investments[i];
+            if (item.symbol == symbol &&
+                item.totalCost == cost &&
+                item.currentPrice == currentPrice) {
+              index = i;
+              break;
+            }
           }
-        }
-        
-        if (index != null) {
-          // 顯示確認對話框
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text('刪除投資'),
-              content: Text('確定要刪除 $symbol 嗎？'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('取消'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    await _removeInvestment(index!);
-                    Navigator.pop(context);
-                  },
-                  child: Text('刪除'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                ),
-              ],
-            ),
-          );
-        }
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-          children: [
-            // 標題行：股票代碼和漲跌幅
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+          if (index != null) {
+            // 顯示確認對話框
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text('刪除投資'),
+                content: Text('確定要刪除 $symbol 嗎？'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text('取消'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await _removeInvestment(index!);
+                      Navigator.pop(context);
+                    },
+                    child: Text('刪除'),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  ),
+                ],
+              ),
+            );
+          }
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
               children: [
+                // 標題行：股票代碼和漲跌幅
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.business,
-                        color: Colors.blue,
-                        size: 20,
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.business,
+                            color: Colors.blue,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          symbol,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      symbol,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                    Row(
+                      children: [
+                        Icon(
+                          changeIcon,
+                          color: changeColor,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${changePercentage.abs().toStringAsFixed(1)}%',
+                          style: TextStyle(
+                            color: changeColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                // 詳細資訊行：成本、當前價值、漲跌金額
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(
-                      changeIcon,
-                      color: changeColor,
-                      size: 14,
+                    // 成本
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '成本',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          '\$${cost.toStringAsFixed(1)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 2),
-                    Text(
-                      '${changePercentage.abs().toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        color: changeColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    // 當前價值
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          '當前價值',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          '\$${currentPrice.toStringAsFixed(1)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // 盈虧
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '盈虧',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          '${isPositive ? "+" : ""}\$${changeAmount.toStringAsFixed(1)}',
+                          style: TextStyle(
+                            color: changeColor,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            // 詳細資訊行：成本、當前價值、漲跌金額
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // 成本
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '成本',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      '\$${cost.toStringAsFixed(1)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                // 當前價值
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      '當前價值',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      '\$${currentPrice.toStringAsFixed(1)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                // 盈虧
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '盈虧',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      '${isPositive ? "+" : ""}\$${changeAmount.toStringAsFixed(1)}',
-                      style: TextStyle(
-                        color: changeColor,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+          ),
+        ));
   }
 }

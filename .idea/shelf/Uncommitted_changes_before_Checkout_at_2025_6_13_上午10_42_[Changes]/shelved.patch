@@ -1,0 +1,832 @@
+Index: lib/view/home/HomePage.dart
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import 'package:flutter/material.dart';\nimport 'dart:developer' as developer;\nimport '../../model/investment.dart';\nimport '../../model/investment_account.dart';\nimport '../../database/database_helper.dart';\nimport 'package:investment/view/stats/StatsPage.dart';\nimport 'package:investment/view/account/AccountPage.dart';\nimport '../investment/InvestmentFormPage.dart';\n\n\nclass HomePage extends StatefulWidget {\n  const HomePage({super.key});\n\n  @override\n  State<HomePage> createState() => _HomePageState();\n}\n\nclass _HomePageState extends State<HomePage> {\n  final DatabaseHelper _db = DatabaseHelper();\n\n  /// 所有可用的投資帳戶\n  List<InvestmentAccount> _accounts = [];\n\n  /// 目前選擇的帳戶\n  InvestmentAccount? _selectedAccount;\n\n  // 以空列表初始化，資料將從資料庫載入\n  List<Investment> _investments = [];\n  \n  @override\n  void initState() {\n    super.initState();\n    _loadAccounts();\n\n    // // 初始化時進行數據驗證\n    // print(\"投資項目總數: ${_investments.length}\");\n    // for (int i = 0; i < _investments.length; i++) {\n    //   print(\"項目 $i: ${_investments[i].symbol}\");\n    // }\n\n    // // 為了在熱重載時也確保黃金項目存在，我們在構造函數中進行檢查\n    // // 注意：這段代碼只是為了解決當前問題，正常情況下不建議這樣做\n\n    // // 在初始化後立即確認數據已正確加載\n    // print(\"初始化時的投資項目數量: ${_investments.length}\");\n    // for (int i = 0; i < _investments.length; i++) {\n    //   print(\"初始化項目 $i: ${_investments[i].symbol} (cost: ${_investments[i].totalCost})\");\n    // }\n  }\n\n  Future<void> _loadAccounts() async {\n    final accounts = await _db.getAccounts();\n    InvestmentAccount? selected;\n    if (accounts.isNotEmpty) {\n      selected = accounts.first;\n    }\n    setState(() {\n      _accounts = accounts;\n      _selectedAccount = selected;\n    });\n\n    if (selected != null) {\n      await _loadInvestments(selected.id);\n    }\n  }\n\n  Future<void> _loadInvestments(int accountId) async {\n    final data = await _db.getInvestments(accountId);\n    setState(() {\n      _investments = data;\n    });\n  }\n\n  @override\n  Widget build(BuildContext context) {\n    final theme = Theme.of(context);\n\n    return DefaultTabController(\n      length: 2,\n      child: Scaffold(\n        backgroundColor: theme.colorScheme.background,\n        body: SafeArea(\n          child: Column(\n            crossAxisAlignment: CrossAxisAlignment.start,\n            children: [\n              _buildHeader(),\n              _buildSummaryCards(),\n              const TabBar(\n                tabs: [\n                  Tab(text: '交易記錄'),\n                  Tab(text: '圖表分析'),\n                ],\n              ),\n              Expanded(\n                child: TabBarView(\n                  children: [\n                    _buildTransactionList(),\n                    _buildChartAnalysis(),\n                  ],\n                ),\n              ),\n            ],\n          ),\n        ),\n      floatingActionButton: FloatingActionButton.extended(\n        onPressed: () async {\n          final result = await Navigator.push<Investment?>(\n            context,\n            MaterialPageRoute(\n              builder: (_) => InvestmentFormPage(\n                initialAccountId: _selectedAccount?.id,\n              ),\n            ),\n          );\n\n          if (result != null) {\n            if (result.accountId == _selectedAccount?.id) {\n              setState(() {\n                _investments = List.from(_investments)..add(result);\n              });\n            }\n            developer.log('Added investment: ${result.symbol}, total: ${_investments.length}');\n          }\n        },\n        icon: const Icon(Icons.add),\n        label: const Text('新增投資'),\n        elevation: 4,\n      ),\n      // 添加底部間距，避免浮動按鈕擋住內容\n        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,\n        bottomNavigationBar: BottomNavigationBar(\n          currentIndex: 1,\n          selectedItemColor: theme.colorScheme.primary,\n          unselectedItemColor: Colors.grey,\n          showUnselectedLabels: true,\n          items: const [\n            BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: '分析'),\n            BottomNavigationBarItem(icon: Icon(Icons.list), label: '投資'),\n            BottomNavigationBarItem(icon: Icon(Icons.person), label: '帳戶'),\n          ],\n          onTap: (index) {\n            switch (index) {\n              case 0:\n                Navigator.push(\n                  context,\n                  MaterialPageRoute(builder: (_) => const StatsPage()),\n                );\n                break;\n              case 1:\n                // 已在投資頁，無需跳轉\n                break;\n              case 2:\n                Navigator.push(\n                  context,\n                  MaterialPageRoute(builder: (_) => const AccountPage()),\n                );\n                break;\n            }\n          },\n        ),\n      ),\n    );\n  }\n\n  Widget _buildHeader() {\n    return Padding(\n      padding: const EdgeInsets.all(16.0),\n      child: Column(\n        crossAxisAlignment: CrossAxisAlignment.start,\n        children: [\n          const Text(\n            '選擇帳戶',\n            style: TextStyle(\n              fontSize: 14,\n              fontWeight: FontWeight.w500,\n              color: Colors.grey,\n            ),\n          ),\n          const SizedBox(height: 8),\n          Container(\n            decoration: BoxDecoration(\n              borderRadius: BorderRadius.circular(12),\n              border: Border.all(color: Colors.grey.shade300),\n            ),\n            child: DropdownButtonHideUnderline(\n              child: DropdownButton<InvestmentAccount>(\n                isExpanded: true,\n                value: _selectedAccount,\n                padding: const EdgeInsets.symmetric(horizontal: 16.0),\n                borderRadius: BorderRadius.circular(12),\n                icon: const Icon(Icons.keyboard_arrow_down),\n                onChanged: (value) {\n                  setState(() {\n                    _selectedAccount = value;\n                  });\n                  if (value != null) {\n                    _loadInvestments(value.id);\n                  }\n                },\n                items: _accounts\n                    .map(\n                      (acc) => DropdownMenuItem(\n                        value: acc,\n                        child: Text(acc.name),\n                      ),\n                    )\n                    .toList(),\n              ),\n            ),\n          ),\n        ],\n      ),\n    );\n  }\n\n  Widget _buildSummaryCards() {\n    double totalInvestment = _calculateTotalInvestment();\n    double currentValue = _calculateCurrentValue();\n    double profit = currentValue - totalInvestment;\n    double returnRate = _calculateReturnRate();\n\n    Color profitColor = profit >= 0 ? Colors.green : Colors.red;\n    Color rateColor = returnRate >= 0 ? Colors.green : Colors.red;\n\n    return Padding(\n      padding: const EdgeInsets.symmetric(horizontal: 16.0),\n      child: Row(\n        children: [\n          Expanded(\n            child: _buildSummaryCard('總投資部位', totalInvestment, Colors.blue),\n          ),\n          const SizedBox(width: 12),\n          Expanded(\n            child: _buildSummaryCard('總收益', profit, profitColor),\n          ),\n          const SizedBox(width: 12),\n          Expanded(\n            child: _buildSummaryCard('報酬率', returnRate, rateColor,\n                isPercentage: true),\n          ),\n        ],\n      ),\n    );\n  }\n\n  Widget _buildSummaryCard(String title, double amount, Color color,\n      {bool isPercentage = false}) {\n    return Container(\n      padding: const EdgeInsets.all(16),\n      decoration: BoxDecoration(\n        color: color.withOpacity(0.1),\n        borderRadius: BorderRadius.circular(16),\n      ),\n      child: Column(\n        crossAxisAlignment: CrossAxisAlignment.start,\n        children: [\n          Text(\n            title,\n            style: TextStyle(\n              fontSize: 14,\n              color: color.withOpacity(0.8),\n              fontWeight: FontWeight.w500,\n            ),\n          ),\n          const SizedBox(height: 8),\n          Text(\n            isPercentage\n                ? '${amount.toStringAsFixed(1)}%'\n                : 'NT\\$${amount.toStringAsFixed(0)}',\n            style: TextStyle(\n              fontSize: 18,\n              fontWeight: FontWeight.bold,\n              color: color,\n            ),\n          ),\n        ],\n      ),\n    );\n  }\n\n  Widget _buildTransactionList() {\n    return ListView.separated(\n      padding: const EdgeInsets.all(16),\n      itemCount: _investments.length,\n      itemBuilder: (context, index) {\n        final item = _investments[index];\n        return _buildTransactionTile(item);\n      },\n      separatorBuilder: (context, index) => const Divider(),\n    );\n  }\n\n  // 直接計算總投資成本\n  double _calculateTotalInvestment() {\n    double total = 0.0;\n    for (final investment in _investments) {\n      total += investment.totalCost;\n    }\n    return total;\n  }\n\n  // 計算當前總價值\n  double _calculateCurrentValue() {\n    double total = 0.0;\n    for (var investment in _investments) {\n      total += investment.currentPrice;\n    }\n    return total;\n  }\n\n  double _calculateReturnRate() {\n    double totalCost = _calculateTotalInvestment();\n    if (totalCost == 0) return 0;\n    return ((_calculateCurrentValue() - totalCost) / totalCost) * 100;\n  }\n  \n  // 計算投資項目的漲跌幅度 - 更加穩健的實現\n  double _calculateChangePercentage(double cost, double currentPrice) {\n    // 防止除以零錯誤\n    if (cost <= 0) return 0;\n    return ((currentPrice - cost) / cost) * 100;\n  }\n  \n  @override\n  void didChangeDependencies() {\n    super.didChangeDependencies();\n    // print(\"==== didChangeDependencies 被調用 ====\");\n  }\n  \n  // 添加排序方法\n  void _sortInvestments(String sortBy) {\n    setState(() {\n      if (sortBy == 'symbol') {\n        _investments.sort((a, b) => a.symbol.compareTo(b.symbol));\n      } else if (sortBy == 'cost') {\n        _investments.sort((a, b) => a.totalCost.compareTo(b.totalCost));\n      } else if (sortBy == 'value') {\n        _investments.sort((a, b) => a.currentPrice.compareTo(b.currentPrice));\n      }\n    });\n  }\n  \n  // 刪除投資項目\n  Future<void> _removeInvestment(int index) async {\n    if (index >= 0 && index < _investments.length) {\n      final removedItem = _investments[index];\n      await _db.deleteInvestment(removedItem.id);\n      setState(() {\n        _investments.removeAt(index);\n        developer.log('Removed investment: ${removedItem.symbol}');\n        developer.log('Current investment count: ${_investments.length}');\n      });\n    }\n  }\n\n  Widget _buildTransactionTile(Investment item) {\n    final amount = item.totalCost;\n    final dateStr =\n        '${item.buyDate.year}-${item.buyDate.month.toString().padLeft(2, '0')}-${item.buyDate.day.toString().padLeft(2, '0')}';\n    return ListTile(\n      leading: const Icon(Icons.swap_vert),\n      title: Text(item.symbol),\n      subtitle: const Text('買入'),\n      trailing: Column(\n        mainAxisSize: MainAxisSize.min,\n        crossAxisAlignment: CrossAxisAlignment.end,\n        children: [\n          Text('金額 NT\\$${amount.toStringAsFixed(0)}'),\n          Text('數量 ${item.quantity}'),\n          Text(\n            dateStr,\n            style: const TextStyle(fontSize: 12, color: Colors.grey),\n          ),\n        ],\n      ),\n    );\n  }\n\n  Widget _buildChartAnalysis() {\n    return SingleChildScrollView(\n      padding: const EdgeInsets.all(16),\n      child: Column(\n        children: [\n          Container(\n            height: 200,\n            color: Colors.blueGrey.withOpacity(0.1),\n            alignment: Alignment.center,\n            child: const Text('折線圖 Placeholder'),\n          ),\n          const SizedBox(height: 16),\n          Container(\n            height: 200,\n            color: Colors.blueGrey.withOpacity(0.1),\n            alignment: Alignment.center,\n            child: const Text('圓餅圖 Placeholder'),\n          ),\n          const SizedBox(height: 16),\n          Container(\n            height: 200,\n            color: Colors.blueGrey.withOpacity(0.1),\n            alignment: Alignment.center,\n            child: const Text('長條圖 Placeholder'),\n          ),\n          const SizedBox(height: 80),\n        ],\n      ),\n    );\n  }\n  \n  Widget _buildInvestmentCard({\n    Key? key, // 添加 key 參數\n    required String symbol,\n    required double cost,\n    required double currentPrice,\n  }) {\n    // 計算漲跌幅和金額變化\n    double changePercentage = _calculateChangePercentage(cost, currentPrice);\n    double changeAmount = currentPrice - cost;\n    final isPositive = changePercentage >= 0;\n    final changeColor = isPositive ? Colors.green : Colors.red;\n    final changeIcon = isPositive ? Icons.arrow_upward : Icons.arrow_downward;\n  \n    return GestureDetector(\n      onLongPress: () {\n        // 查找當前項目的索引\n        int? index;\n        for (int i = 0; i < _investments.length; i++) {\n          final item = _investments[i];\n          if (item.symbol == symbol &&\n              item.totalCost == cost &&\n              item.currentPrice == currentPrice) {\n            index = i;\n            break;\n          }\n        }\n        \n        if (index != null) {\n          // 顯示確認對話框\n          showDialog(\n            context: context,\n            builder: (context) => AlertDialog(\n              title: Text('刪除投資'),\n              content: Text('確定要刪除 $symbol 嗎？'),\n              actions: [\n                TextButton(\n                  onPressed: () => Navigator.pop(context),\n                  child: Text('取消'),\n                ),\n                TextButton(\n                  onPressed: () async {\n                    await _removeInvestment(index!);\n                    Navigator.pop(context);\n                  },\n                  child: Text('刪除'),\n                  style: TextButton.styleFrom(foregroundColor: Colors.red),\n                ),\n              ],\n            ),\n          );\n        }\n      },\n      child: Container(\n        decoration: BoxDecoration(\n          color: Colors.white,\n          borderRadius: BorderRadius.circular(16),\n          boxShadow: [\n            BoxShadow(\n              color: Colors.grey.withOpacity(0.1),\n              spreadRadius: 1,\n              blurRadius: 4,\n              offset: const Offset(0, 2),\n            ),\n          ],\n        ),\n        child: Padding(\n          padding: const EdgeInsets.all(16.0),\n          child: Column(\n          children: [\n            // 標題行：股票代碼和漲跌幅\n            Row(\n              mainAxisAlignment: MainAxisAlignment.spaceBetween,\n              children: [\n                Row(\n                  children: [\n                    Container(\n                      padding: const EdgeInsets.all(8),\n                      decoration: BoxDecoration(\n                        color: Colors.blue.withOpacity(0.1),\n                        shape: BoxShape.circle,\n                      ),\n                      child: const Icon(\n                        Icons.business,\n                        color: Colors.blue,\n                        size: 20,\n                      ),\n                    ),\n                    const SizedBox(width: 12),\n                    Text(\n                      symbol,\n                      style: const TextStyle(\n                        fontWeight: FontWeight.bold,\n                        fontSize: 16,\n                      ),\n                    ),\n                  ],\n                ),\n                Row(\n                  children: [\n                    Icon(\n                      changeIcon,\n                      color: changeColor,\n                      size: 14,\n                    ),\n                    const SizedBox(width: 2),\n                    Text(\n                      '${changePercentage.abs().toStringAsFixed(1)}%',\n                      style: TextStyle(\n                        color: changeColor,\n                        fontSize: 14,\n                        fontWeight: FontWeight.bold,\n                      ),\n                    ),\n                  ],\n                ),\n              ],\n            ),\n            const SizedBox(height: 12),\n            // 詳細資訊行：成本、當前價值、漲跌金額\n            Row(\n              mainAxisAlignment: MainAxisAlignment.spaceBetween,\n              children: [\n                // 成本\n                Column(\n                  crossAxisAlignment: CrossAxisAlignment.start,\n                  children: [\n                    Text(\n                      '成本',\n                      style: TextStyle(\n                        color: Colors.grey.shade600,\n                        fontSize: 12,\n                      ),\n                    ),\n                    Text(\n                      '\\$${cost.toStringAsFixed(1)}',\n                      style: const TextStyle(\n                        fontWeight: FontWeight.w500,\n                        fontSize: 14,\n                      ),\n                    ),\n                  ],\n                ),\n                // 當前價值\n                Column(\n                  crossAxisAlignment: CrossAxisAlignment.center,\n                  children: [\n                    Text(\n                      '當前價值',\n                      style: TextStyle(\n                        color: Colors.grey.shade600,\n                        fontSize: 12,\n                      ),\n                    ),\n                    Text(\n                      '\\$${currentPrice.toStringAsFixed(1)}',\n                      style: const TextStyle(\n                        fontWeight: FontWeight.w500,\n                        fontSize: 14,\n                      ),\n                    ),\n                  ],\n                ),\n                // 盈虧\n                Column(\n                  crossAxisAlignment: CrossAxisAlignment.end,\n                  children: [\n                    Text(\n                      '盈虧',\n                      style: TextStyle(\n                        color: Colors.grey.shade600,\n                        fontSize: 12,\n                      ),\n                    ),\n                    Text(\n                      '${isPositive ? \"+\" : \"\"}\\$${changeAmount.toStringAsFixed(1)}',\n                      style: TextStyle(\n                        color: changeColor,\n                        fontWeight: FontWeight.w500,\n                        fontSize: 14,\n                      ),\n                    ),\n                  ],\n                ),\n              ],\n            ),\n          ],\n        ),\n      ),\n    );\n  }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/lib/view/home/HomePage.dart b/lib/view/home/HomePage.dart
+--- a/lib/view/home/HomePage.dart	(revision 5e212f1d12218957f33183c70c066929f13e196a)
++++ b/lib/view/home/HomePage.dart	(date 1749781711263)
+@@ -7,7 +7,6 @@
+ import 'package:investment/view/account/AccountPage.dart';
+ import '../investment/InvestmentFormPage.dart';
+ 
+-
+ class HomePage extends StatefulWidget {
+   const HomePage({super.key});
+ 
+@@ -26,26 +25,11 @@
+ 
+   // 以空列表初始化，資料將從資料庫載入
+   List<Investment> _investments = [];
+-  
++
+   @override
+   void initState() {
+     super.initState();
+     _loadAccounts();
+-
+-    // // 初始化時進行數據驗證
+-    // print("投資項目總數: ${_investments.length}");
+-    // for (int i = 0; i < _investments.length; i++) {
+-    //   print("項目 $i: ${_investments[i].symbol}");
+-    // }
+-
+-    // // 為了在熱重載時也確保黃金項目存在，我們在構造函數中進行檢查
+-    // // 注意：這段代碼只是為了解決當前問題，正常情況下不建議這樣做
+-
+-    // // 在初始化後立即確認數據已正確加載
+-    // print("初始化時的投資項目數量: ${_investments.length}");
+-    // for (int i = 0; i < _investments.length; i++) {
+-    //   print("初始化項目 $i: ${_investments[i].symbol} (cost: ${_investments[i].totalCost})");
+-    // }
+   }
+ 
+   Future<void> _loadAccounts() async {
+@@ -102,31 +86,32 @@
+             ],
+           ),
+         ),
+-      floatingActionButton: FloatingActionButton.extended(
+-        onPressed: () async {
+-          final result = await Navigator.push<Investment?>(
+-            context,
+-            MaterialPageRoute(
+-              builder: (_) => InvestmentFormPage(
+-                initialAccountId: _selectedAccount?.id,
+-              ),
+-            ),
+-          );
++        floatingActionButton: FloatingActionButton.extended(
++          onPressed: () async {
++            final result = await Navigator.push<Investment?>(
++              context,
++              MaterialPageRoute(
++                builder: (_) => InvestmentFormPage(
++                  initialAccountId: _selectedAccount?.id,
++                ),
++              ),
++            );
+ 
+-          if (result != null) {
+-            if (result.accountId == _selectedAccount?.id) {
+-              setState(() {
+-                _investments = List.from(_investments)..add(result);
+-              });
+-            }
+-            developer.log('Added investment: ${result.symbol}, total: ${_investments.length}');
+-          }
+-        },
+-        icon: const Icon(Icons.add),
+-        label: const Text('新增投資'),
+-        elevation: 4,
+-      ),
+-      // 添加底部間距，避免浮動按鈕擋住內容
++            if (result != null) {
++              if (result.accountId == _selectedAccount?.id) {
++                setState(() {
++                  _investments = List.from(_investments)..add(result);
++                });
++              }
++              developer.log(
++                  'Added investment: ${result.symbol}, total: ${_investments.length}');
++            }
++          },
++          icon: const Icon(Icons.add),
++          label: const Text('新增投資'),
++          elevation: 4,
++        ),
++        // 添加底部間距，避免浮動按鈕擋住內容
+         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+         bottomNavigationBar: BottomNavigationBar(
+           currentIndex: 1,
+@@ -313,20 +298,20 @@
+     if (totalCost == 0) return 0;
+     return ((_calculateCurrentValue() - totalCost) / totalCost) * 100;
+   }
+-  
++
+   // 計算投資項目的漲跌幅度 - 更加穩健的實現
+   double _calculateChangePercentage(double cost, double currentPrice) {
+     // 防止除以零錯誤
+     if (cost <= 0) return 0;
+     return ((currentPrice - cost) / cost) * 100;
+   }
+-  
++
+   @override
+   void didChangeDependencies() {
+     super.didChangeDependencies();
+     // print("==== didChangeDependencies 被調用 ====");
+   }
+-  
++
+   // 添加排序方法
+   void _sortInvestments(String sortBy) {
+     setState(() {
+@@ -339,7 +324,7 @@
+       }
+     });
+   }
+-  
++
+   // 刪除投資項目
+   Future<void> _removeInvestment(int index) async {
+     if (index >= 0 && index < _investments.length) {
+@@ -365,7 +350,7 @@
+         mainAxisSize: MainAxisSize.min,
+         crossAxisAlignment: CrossAxisAlignment.end,
+         children: [
+-          Text('金額 NT\$${amount.toStringAsFixed(0)}'),
++          Text('\$${amount.toStringAsFixed(0)}'),
+           Text('數量 ${item.quantity}'),
+           Text(
+             dateStr,
+@@ -406,7 +391,7 @@
+       ),
+     );
+   }
+-  
++
+   Widget _buildInvestmentCard({
+     Key? key, // 添加 key 參數
+     required String symbol,
+@@ -419,182 +404,182 @@
+     final isPositive = changePercentage >= 0;
+     final changeColor = isPositive ? Colors.green : Colors.red;
+     final changeIcon = isPositive ? Icons.arrow_upward : Icons.arrow_downward;
+-  
++
+     return GestureDetector(
+-      onLongPress: () {
+-        // 查找當前項目的索引
+-        int? index;
+-        for (int i = 0; i < _investments.length; i++) {
+-          final item = _investments[i];
+-          if (item.symbol == symbol &&
+-              item.totalCost == cost &&
+-              item.currentPrice == currentPrice) {
+-            index = i;
+-            break;
+-          }
+-        }
+-        
+-        if (index != null) {
+-          // 顯示確認對話框
+-          showDialog(
+-            context: context,
+-            builder: (context) => AlertDialog(
+-              title: Text('刪除投資'),
+-              content: Text('確定要刪除 $symbol 嗎？'),
+-              actions: [
+-                TextButton(
+-                  onPressed: () => Navigator.pop(context),
+-                  child: Text('取消'),
+-                ),
+-                TextButton(
+-                  onPressed: () async {
+-                    await _removeInvestment(index!);
+-                    Navigator.pop(context);
+-                  },
+-                  child: Text('刪除'),
+-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+-                ),
+-              ],
+-            ),
+-          );
+-        }
+-      },
+-      child: Container(
+-        decoration: BoxDecoration(
+-          color: Colors.white,
+-          borderRadius: BorderRadius.circular(16),
+-          boxShadow: [
+-            BoxShadow(
+-              color: Colors.grey.withOpacity(0.1),
+-              spreadRadius: 1,
+-              blurRadius: 4,
+-              offset: const Offset(0, 2),
+-            ),
+-          ],
+-        ),
+-        child: Padding(
+-          padding: const EdgeInsets.all(16.0),
+-          child: Column(
+-          children: [
+-            // 標題行：股票代碼和漲跌幅
+-            Row(
+-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+-              children: [
+-                Row(
+-                  children: [
+-                    Container(
+-                      padding: const EdgeInsets.all(8),
+-                      decoration: BoxDecoration(
+-                        color: Colors.blue.withOpacity(0.1),
+-                        shape: BoxShape.circle,
+-                      ),
+-                      child: const Icon(
+-                        Icons.business,
+-                        color: Colors.blue,
+-                        size: 20,
+-                      ),
+-                    ),
+-                    const SizedBox(width: 12),
+-                    Text(
+-                      symbol,
+-                      style: const TextStyle(
+-                        fontWeight: FontWeight.bold,
+-                        fontSize: 16,
+-                      ),
+-                    ),
+-                  ],
+-                ),
+-                Row(
+-                  children: [
+-                    Icon(
+-                      changeIcon,
+-                      color: changeColor,
+-                      size: 14,
+-                    ),
+-                    const SizedBox(width: 2),
+-                    Text(
+-                      '${changePercentage.abs().toStringAsFixed(1)}%',
+-                      style: TextStyle(
+-                        color: changeColor,
+-                        fontSize: 14,
+-                        fontWeight: FontWeight.bold,
+-                      ),
+-                    ),
+-                  ],
+-                ),
+-              ],
+-            ),
+-            const SizedBox(height: 12),
+-            // 詳細資訊行：成本、當前價值、漲跌金額
+-            Row(
+-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+-              children: [
+-                // 成本
+-                Column(
+-                  crossAxisAlignment: CrossAxisAlignment.start,
+-                  children: [
+-                    Text(
+-                      '成本',
+-                      style: TextStyle(
+-                        color: Colors.grey.shade600,
+-                        fontSize: 12,
+-                      ),
+-                    ),
+-                    Text(
+-                      '\$${cost.toStringAsFixed(1)}',
+-                      style: const TextStyle(
+-                        fontWeight: FontWeight.w500,
+-                        fontSize: 14,
+-                      ),
+-                    ),
+-                  ],
+-                ),
+-                // 當前價值
+-                Column(
+-                  crossAxisAlignment: CrossAxisAlignment.center,
+-                  children: [
+-                    Text(
+-                      '當前價值',
+-                      style: TextStyle(
+-                        color: Colors.grey.shade600,
+-                        fontSize: 12,
+-                      ),
+-                    ),
+-                    Text(
+-                      '\$${currentPrice.toStringAsFixed(1)}',
+-                      style: const TextStyle(
+-                        fontWeight: FontWeight.w500,
+-                        fontSize: 14,
+-                      ),
+-                    ),
+-                  ],
+-                ),
+-                // 盈虧
+-                Column(
+-                  crossAxisAlignment: CrossAxisAlignment.end,
+-                  children: [
+-                    Text(
+-                      '盈虧',
+-                      style: TextStyle(
+-                        color: Colors.grey.shade600,
+-                        fontSize: 12,
+-                      ),
+-                    ),
+-                    Text(
+-                      '${isPositive ? "+" : ""}\$${changeAmount.toStringAsFixed(1)}',
+-                      style: TextStyle(
+-                        color: changeColor,
+-                        fontWeight: FontWeight.w500,
+-                        fontSize: 14,
+-                      ),
+-                    ),
+-                  ],
+-                ),
+-              ],
+-            ),
+-          ],
+-        ),
+-      ),
+-    );
++        onLongPress: () {
++          // 查找當前項目的索引
++          int? index;
++          for (int i = 0; i < _investments.length; i++) {
++            final item = _investments[i];
++            if (item.symbol == symbol &&
++                item.totalCost == cost &&
++                item.currentPrice == currentPrice) {
++              index = i;
++              break;
++            }
++          }
++
++          if (index != null) {
++            // 顯示確認對話框
++            showDialog(
++              context: context,
++              builder: (context) => AlertDialog(
++                title: Text('刪除投資'),
++                content: Text('確定要刪除 $symbol 嗎？'),
++                actions: [
++                  TextButton(
++                    onPressed: () => Navigator.pop(context),
++                    child: Text('取消'),
++                  ),
++                  TextButton(
++                    onPressed: () async {
++                      await _removeInvestment(index!);
++                      Navigator.pop(context);
++                    },
++                    child: Text('刪除'),
++                    style: TextButton.styleFrom(foregroundColor: Colors.red),
++                  ),
++                ],
++              ),
++            );
++          }
++        },
++        child: Container(
++          decoration: BoxDecoration(
++            color: Colors.white,
++            borderRadius: BorderRadius.circular(16),
++            boxShadow: [
++              BoxShadow(
++                color: Colors.grey.withOpacity(0.1),
++                spreadRadius: 1,
++                blurRadius: 4,
++                offset: const Offset(0, 2),
++              ),
++            ],
++          ),
++          child: Padding(
++            padding: const EdgeInsets.all(16.0),
++            child: Column(
++              children: [
++                // 標題行：股票代碼和漲跌幅
++                Row(
++                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
++                  children: [
++                    Row(
++                      children: [
++                        Container(
++                          padding: const EdgeInsets.all(8),
++                          decoration: BoxDecoration(
++                            color: Colors.blue.withOpacity(0.1),
++                            shape: BoxShape.circle,
++                          ),
++                          child: const Icon(
++                            Icons.business,
++                            color: Colors.blue,
++                            size: 20,
++                          ),
++                        ),
++                        const SizedBox(width: 12),
++                        Text(
++                          symbol,
++                          style: const TextStyle(
++                            fontWeight: FontWeight.bold,
++                            fontSize: 16,
++                          ),
++                        ),
++                      ],
++                    ),
++                    Row(
++                      children: [
++                        Icon(
++                          changeIcon,
++                          color: changeColor,
++                          size: 14,
++                        ),
++                        const SizedBox(width: 2),
++                        Text(
++                          '${changePercentage.abs().toStringAsFixed(1)}%',
++                          style: TextStyle(
++                            color: changeColor,
++                            fontSize: 14,
++                            fontWeight: FontWeight.bold,
++                          ),
++                        ),
++                      ],
++                    ),
++                  ],
++                ),
++                const SizedBox(height: 12),
++                // 詳細資訊行：成本、當前價值、漲跌金額
++                Row(
++                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
++                  children: [
++                    // 成本
++                    Column(
++                      crossAxisAlignment: CrossAxisAlignment.start,
++                      children: [
++                        Text(
++                          '成本',
++                          style: TextStyle(
++                            color: Colors.grey.shade600,
++                            fontSize: 12,
++                          ),
++                        ),
++                        Text(
++                          '\$${cost.toStringAsFixed(1)}',
++                          style: const TextStyle(
++                            fontWeight: FontWeight.w500,
++                            fontSize: 14,
++                          ),
++                        ),
++                      ],
++                    ),
++                    // 當前價值
++                    Column(
++                      crossAxisAlignment: CrossAxisAlignment.center,
++                      children: [
++                        Text(
++                          '當前價值',
++                          style: TextStyle(
++                            color: Colors.grey.shade600,
++                            fontSize: 12,
++                          ),
++                        ),
++                        Text(
++                          '\$${currentPrice.toStringAsFixed(1)}',
++                          style: const TextStyle(
++                            fontWeight: FontWeight.w500,
++                            fontSize: 14,
++                          ),
++                        ),
++                      ],
++                    ),
++                    // 盈虧
++                    Column(
++                      crossAxisAlignment: CrossAxisAlignment.end,
++                      children: [
++                        Text(
++                          '盈虧',
++                          style: TextStyle(
++                            color: Colors.grey.shade600,
++                            fontSize: 12,
++                          ),
++                        ),
++                        Text(
++                          '${isPositive ? "+" : ""}\$${changeAmount.toStringAsFixed(1)}',
++                          style: TextStyle(
++                            color: changeColor,
++                            fontWeight: FontWeight.w500,
++                            fontSize: 14,
++                          ),
++                        ),
++                      ],
++                    ),
++                  ],
++                ),
++              ],
++            ),
++          ),
++        ));
+   }
+ }
+Index: macos/Flutter/GeneratedPluginRegistrant.swift
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>//\n//  Generated file. Do not edit.\n//\n\nimport FlutterMacOS\nimport Foundation\n\n\nfunc RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/macos/Flutter/GeneratedPluginRegistrant.swift b/macos/Flutter/GeneratedPluginRegistrant.swift
+--- a/macos/Flutter/GeneratedPluginRegistrant.swift	(revision 5e212f1d12218957f33183c70c066929f13e196a)
++++ b/macos/Flutter/GeneratedPluginRegistrant.swift	(date 1749781506571)
+@@ -5,6 +5,8 @@
+ import FlutterMacOS
+ import Foundation
+ 
++import sqflite_darwin
+ 
+ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
++  SqflitePlugin.register(with: registry.registrar(forPlugin: "SqflitePlugin"))
+ }
+Index: macos/Flutter/Flutter-Release.xcconfig
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>#include \"ephemeral/Flutter-Generated.xcconfig\"\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/macos/Flutter/Flutter-Release.xcconfig b/macos/Flutter/Flutter-Release.xcconfig
+--- a/macos/Flutter/Flutter-Release.xcconfig	(revision 5e212f1d12218957f33183c70c066929f13e196a)
++++ b/macos/Flutter/Flutter-Release.xcconfig	(date 1749717973089)
+@@ -1,1 +1,2 @@
++#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+ #include "ephemeral/Flutter-Generated.xcconfig"
+Index: ios/Runner.xcworkspace/contents.xcworkspacedata
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Workspace\n   version = \"1.0\">\n   <FileRef\n      location = \"group:Runner.xcodeproj\">\n   </FileRef>\n</Workspace>\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/ios/Runner.xcworkspace/contents.xcworkspacedata b/ios/Runner.xcworkspace/contents.xcworkspacedata
+--- a/ios/Runner.xcworkspace/contents.xcworkspacedata	(revision 5e212f1d12218957f33183c70c066929f13e196a)
++++ b/ios/Runner.xcworkspace/contents.xcworkspacedata	(date 1749717978692)
+@@ -4,4 +4,7 @@
+    <FileRef
+       location = "group:Runner.xcodeproj">
+    </FileRef>
++   <FileRef
++      location = "group:Pods/Pods.xcodeproj">
++   </FileRef>
+ </Workspace>
+Index: ios/Flutter/Release.xcconfig
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>#include \"Generated.xcconfig\"\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/ios/Flutter/Release.xcconfig b/ios/Flutter/Release.xcconfig
+--- a/ios/Flutter/Release.xcconfig	(revision 5e212f1d12218957f33183c70c066929f13e196a)
++++ b/ios/Flutter/Release.xcconfig	(date 1749717973088)
+@@ -1,1 +1,2 @@
++#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+ #include "Generated.xcconfig"
+Index: ios/Flutter/Debug.xcconfig
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>#include \"Generated.xcconfig\"\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/ios/Flutter/Debug.xcconfig b/ios/Flutter/Debug.xcconfig
+--- a/ios/Flutter/Debug.xcconfig	(revision 5e212f1d12218957f33183c70c066929f13e196a)
++++ b/ios/Flutter/Debug.xcconfig	(date 1749717973087)
+@@ -1,1 +1,2 @@
++#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
+ #include "Generated.xcconfig"
+Index: ios/Runner.xcodeproj/project.pbxproj
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>// !$*UTF8*$!\n{\n\tarchiveVersion = 1;\n\tclasses = {\n\t};\n\tobjectVersion = 54;\n\tobjects = {\n\n/* Begin PBXBuildFile section */\n\t\t1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };\n\t\t331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };\n\t\t3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };\n\t\t74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };\n\t\t97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };\n\t\t97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };\n\t\t97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };\n/* End PBXBuildFile section */\n\n/* Begin PBXContainerItemProxy section */\n\t\t331C8085294A63A400263BE5 /* PBXContainerItemProxy */ = {\n\t\t\tisa = PBXContainerItemProxy;\n\t\t\tcontainerPortal = 97C146E61CF9000F007C117D /* Project object */;\n\t\t\tproxyType = 1;\n\t\t\tremoteGlobalIDString = 97C146ED1CF9000F007C117D;\n\t\t\tremoteInfo = Runner;\n\t\t};\n/* End PBXContainerItemProxy section */\n\n/* Begin PBXCopyFilesBuildPhase section */\n\t\t9705A1C41CF9048500538489 /* Embed Frameworks */ = {\n\t\t\tisa = PBXCopyFilesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tdstPath = \"\";\n\t\t\tdstSubfolderSpec = 10;\n\t\t\tfiles = (\n\t\t\t);\n\t\t\tname = \"Embed Frameworks\";\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t};\n/* End PBXCopyFilesBuildPhase section */\n\n/* Begin PBXFileReference section */\n\t\t1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = \"<group>\"; };\n\t\t1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = \"<group>\"; };\n\t\t331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = \"<group>\"; };\n\t\t331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };\n\t\t3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = \"<group>\"; };\n\t\t74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = \"Runner-Bridging-Header.h\"; sourceTree = \"<group>\"; };\n\t\t74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = \"<group>\"; };\n\t\t7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = \"<group>\"; };\n\t\t9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = \"<group>\"; };\n\t\t9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = \"<group>\"; };\n\t\t97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };\n\t\t97C146FB1CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = \"<group>\"; };\n\t\t97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = \"<group>\"; };\n\t\t97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = \"<group>\"; };\n\t\t97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = \"<group>\"; };\n/* End PBXFileReference section */\n\n/* Begin PBXFrameworksBuildPhase section */\n\t\t97C146EB1CF9000F007C117D /* Frameworks */ = {\n\t\t\tisa = PBXFrameworksBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t};\n/* End PBXFrameworksBuildPhase section */\n\n/* Begin PBXGroup section */\n\t\t331C8082294A63A400263BE5 /* RunnerTests */ = {\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n\t\t\t\t331C807B294A618700263BE5 /* RunnerTests.swift */,\n\t\t\t);\n\t\t\tpath = RunnerTests;\n\t\t\tsourceTree = \"<group>\";\n\t\t};\n\t\t9740EEB11CF90186004384FC /* Flutter */ = {\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n\t\t\t\t3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */,\n\t\t\t\t9740EEB21CF90195004384FC /* Debug.xcconfig */,\n\t\t\t\t7AFA3C8E1D35360C0083082E /* Release.xcconfig */,\n\t\t\t\t9740EEB31CF90195004384FC /* Generated.xcconfig */,\n\t\t\t);\n\t\t\tname = Flutter;\n\t\t\tsourceTree = \"<group>\";\n\t\t};\n\t\t97C146E51CF9000F007C117D = {\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n\t\t\t\t9740EEB11CF90186004384FC /* Flutter */,\n\t\t\t\t97C146F01CF9000F007C117D /* Runner */,\n\t\t\t\t97C146EF1CF9000F007C117D /* Products */,\n\t\t\t\t331C8082294A63A400263BE5 /* RunnerTests */,\n\t\t\t);\n\t\t\tsourceTree = \"<group>\";\n\t\t};\n\t\t97C146EF1CF9000F007C117D /* Products */ = {\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n\t\t\t\t97C146EE1CF9000F007C117D /* Runner.app */,\n\t\t\t\t331C8081294A63A400263BE5 /* RunnerTests.xctest */,\n\t\t\t);\n\t\t\tname = Products;\n\t\t\tsourceTree = \"<group>\";\n\t\t};\n\t\t97C146F01CF9000F007C117D /* Runner */ = {\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n\t\t\t\t97C146FA1CF9000F007C117D /* Main.storyboard */,\n\t\t\t\t97C146FD1CF9000F007C117D /* Assets.xcassets */,\n\t\t\t\t97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */,\n\t\t\t\t97C147021CF9000F007C117D /* Info.plist */,\n\t\t\t\t1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,\n\t\t\t\t1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,\n\t\t\t\t74858FAE1ED2DC5600515810 /* AppDelegate.swift */,\n\t\t\t\t74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,\n\t\t\t);\n\t\t\tpath = Runner;\n\t\t\tsourceTree = \"<group>\";\n\t\t};\n/* End PBXGroup section */\n\n/* Begin PBXNativeTarget section */\n\t\t331C8080294A63A400263BE5 /* RunnerTests */ = {\n\t\t\tisa = PBXNativeTarget;\n\t\t\tbuildConfigurationList = 331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget \"RunnerTests\" */;\n\t\t\tbuildPhases = (\n\t\t\t\t331C807D294A63A400263BE5 /* Sources */,\n\t\t\t\t331C807F294A63A400263BE5 /* Resources */,\n\t\t\t);\n\t\t\tbuildRules = (\n\t\t\t);\n\t\t\tdependencies = (\n\t\t\t\t331C8086294A63A400263BE5 /* PBXTargetDependency */,\n\t\t\t);\n\t\t\tname = RunnerTests;\n\t\t\tproductName = RunnerTests;\n\t\t\tproductReference = 331C8081294A63A400263BE5 /* RunnerTests.xctest */;\n\t\t\tproductType = \"com.apple.product-type.bundle.unit-test\";\n\t\t};\n\t\t97C146ED1CF9000F007C117D /* Runner */ = {\n\t\t\tisa = PBXNativeTarget;\n\t\t\tbuildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget \"Runner\" */;\n\t\t\tbuildPhases = (\n\t\t\t\t9740EEB61CF901F6004384FC /* Run Script */,\n\t\t\t\t97C146EA1CF9000F007C117D /* Sources */,\n\t\t\t\t97C146EB1CF9000F007C117D /* Frameworks */,\n\t\t\t\t97C146EC1CF9000F007C117D /* Resources */,\n\t\t\t\t9705A1C41CF9048500538489 /* Embed Frameworks */,\n\t\t\t\t3B06AD1E1E4923F5004D2608 /* Thin Binary */,\n\t\t\t);\n\t\t\tbuildRules = (\n\t\t\t);\n\t\t\tdependencies = (\n\t\t\t);\n\t\t\tname = Runner;\n\t\t\tproductName = Runner;\n\t\t\tproductReference = 97C146EE1CF9000F007C117D /* Runner.app */;\n\t\t\tproductType = \"com.apple.product-type.application\";\n\t\t};\n/* End PBXNativeTarget section */\n\n/* Begin PBXProject section */\n\t\t97C146E61CF9000F007C117D /* Project object */ = {\n\t\t\tisa = PBXProject;\n\t\t\tattributes = {\n\t\t\t\tBuildIndependentTargetsInParallel = YES;\n\t\t\t\tLastUpgradeCheck = 1510;\n\t\t\t\tORGANIZATIONNAME = \"\";\n\t\t\t\tTargetAttributes = {\n\t\t\t\t\t331C8080294A63A400263BE5 = {\n\t\t\t\t\t\tCreatedOnToolsVersion = 14.0;\n\t\t\t\t\t\tTestTargetID = 97C146ED1CF9000F007C117D;\n\t\t\t\t\t};\n\t\t\t\t\t97C146ED1CF9000F007C117D = {\n\t\t\t\t\t\tCreatedOnToolsVersion = 7.3.1;\n\t\t\t\t\t\tLastSwiftMigration = 1100;\n\t\t\t\t\t};\n\t\t\t\t};\n\t\t\t};\n\t\t\tbuildConfigurationList = 97C146E91CF9000F007C117D /* Build configuration list for PBXProject \"Runner\" */;\n\t\t\tcompatibilityVersion = \"Xcode 9.3\";\n\t\t\tdevelopmentRegion = en;\n\t\t\thasScannedForEncodings = 0;\n\t\t\tknownRegions = (\n\t\t\t\ten,\n\t\t\t\tBase,\n\t\t\t);\n\t\t\tmainGroup = 97C146E51CF9000F007C117D;\n\t\t\tproductRefGroup = 97C146EF1CF9000F007C117D /* Products */;\n\t\t\tprojectDirPath = \"\";\n\t\t\tprojectRoot = \"\";\n\t\t\ttargets = (\n\t\t\t\t97C146ED1CF9000F007C117D /* Runner */,\n\t\t\t\t331C8080294A63A400263BE5 /* RunnerTests */,\n\t\t\t);\n\t\t};\n/* End PBXProject section */\n\n/* Begin PBXResourcesBuildPhase section */\n\t\t331C807F294A63A400263BE5 /* Resources */ = {\n\t\t\tisa = PBXResourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t};\n\t\t97C146EC1CF9000F007C117D /* Resources */ = {\n\t\t\tisa = PBXResourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n\t\t\t\t97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,\n\t\t\t\t3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,\n\t\t\t\t97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,\n\t\t\t\t97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t};\n/* End PBXResourcesBuildPhase section */\n\n/* Begin PBXShellScriptBuildPhase section */\n\t\t3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {\n\t\t\tisa = PBXShellScriptBuildPhase;\n\t\t\talwaysOutOfDate = 1;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n\t\t\t);\n\t\t\tinputPaths = (\n\t\t\t\t\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\",\n\t\t\t);\n\t\t\tname = \"Thin Binary\";\n\t\t\toutputPaths = (\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t\tshellPath = /bin/sh;\n\t\t\tshellScript = \"/bin/sh \\\"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\\\" embed_and_thin\";\n\t\t};\n\t\t9740EEB61CF901F6004384FC /* Run Script */ = {\n\t\t\tisa = PBXShellScriptBuildPhase;\n\t\t\talwaysOutOfDate = 1;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n\t\t\t);\n\t\t\tinputPaths = (\n\t\t\t);\n\t\t\tname = \"Run Script\";\n\t\t\toutputPaths = (\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t\tshellPath = /bin/sh;\n\t\t\tshellScript = \"/bin/sh \\\"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\\\" build\";\n\t\t};\n/* End PBXShellScriptBuildPhase section */\n\n/* Begin PBXSourcesBuildPhase section */\n\t\t331C807D294A63A400263BE5 /* Sources */ = {\n\t\t\tisa = PBXSourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n\t\t\t\t331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t};\n\t\t97C146EA1CF9000F007C117D /* Sources */ = {\n\t\t\tisa = PBXSourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n\t\t\t\t74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,\n\t\t\t\t1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t};\n/* End PBXSourcesBuildPhase section */\n\n/* Begin PBXTargetDependency section */\n\t\t331C8086294A63A400263BE5 /* PBXTargetDependency */ = {\n\t\t\tisa = PBXTargetDependency;\n\t\t\ttarget = 97C146ED1CF9000F007C117D /* Runner */;\n\t\t\ttargetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;\n\t\t};\n/* End PBXTargetDependency section */\n\n/* Begin PBXVariantGroup section */\n\t\t97C146FA1CF9000F007C117D /* Main.storyboard */ = {\n\t\t\tisa = PBXVariantGroup;\n\t\t\tchildren = (\n\t\t\t\t97C146FB1CF9000F007C117D /* Base */,\n\t\t\t);\n\t\t\tname = Main.storyboard;\n\t\t\tsourceTree = \"<group>\";\n\t\t};\n\t\t97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */ = {\n\t\t\tisa = PBXVariantGroup;\n\t\t\tchildren = (\n\t\t\t\t97C147001CF9000F007C117D /* Base */,\n\t\t\t);\n\t\t\tname = LaunchScreen.storyboard;\n\t\t\tsourceTree = \"<group>\";\n\t\t};\n/* End PBXVariantGroup section */\n\n/* Begin XCBuildConfiguration section */\n\t\t249021D3217E4FDB00AE95B9 /* Profile */ = {\n\t\t\tisa = XCBuildConfiguration;\n\t\t\tbuildSettings = {\n\t\t\t\tALWAYS_SEARCH_USER_PATHS = NO;\n\t\t\t\tASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;\n\t\t\t\tCLANG_ANALYZER_NONNULL = YES;\n\t\t\t\tCLANG_CXX_LANGUAGE_STANDARD = \"gnu++0x\";\n\t\t\t\tCLANG_CXX_LIBRARY = \"libc++\";\n\t\t\t\tCLANG_ENABLE_MODULES = YES;\n\t\t\t\tCLANG_ENABLE_OBJC_ARC = YES;\n\t\t\t\tCLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;\n\t\t\t\tCLANG_WARN_BOOL_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_COMMA = YES;\n\t\t\t\tCLANG_WARN_CONSTANT_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;\n\t\t\t\tCLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;\n\t\t\t\tCLANG_WARN_EMPTY_BODY = YES;\n\t\t\t\tCLANG_WARN_ENUM_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_INFINITE_RECURSION = YES;\n\t\t\t\tCLANG_WARN_INT_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;\n\t\t\t\tCLANG_WARN_OBJC_LITERAL_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;\n\t\t\t\tCLANG_WARN_RANGE_LOOP_ANALYSIS = YES;\n\t\t\t\tCLANG_WARN_STRICT_PROTOTYPES = YES;\n\t\t\t\tCLANG_WARN_SUSPICIOUS_MOVE = YES;\n\t\t\t\tCLANG_WARN_UNREACHABLE_CODE = YES;\n\t\t\t\tCLANG_WARN__DUPLICATE_METHOD_MATCH = YES;\n\t\t\t\t\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"iPhone Developer\";\n\t\t\t\tCOPY_PHASE_STRIP = NO;\n\t\t\t\tDEBUG_INFORMATION_FORMAT = \"dwarf-with-dsym\";\n\t\t\t\tENABLE_NS_ASSERTIONS = NO;\n\t\t\t\tENABLE_STRICT_OBJC_MSGSEND = YES;\n\t\t\t\tENABLE_USER_SCRIPT_SANDBOXING = NO;\n\t\t\t\tGCC_C_LANGUAGE_STANDARD = gnu99;\n\t\t\t\tGCC_NO_COMMON_BLOCKS = YES;\n\t\t\t\tGCC_WARN_64_TO_32_BIT_CONVERSION = YES;\n\t\t\t\tGCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;\n\t\t\t\tGCC_WARN_UNDECLARED_SELECTOR = YES;\n\t\t\t\tGCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;\n\t\t\t\tGCC_WARN_UNUSED_FUNCTION = YES;\n\t\t\t\tGCC_WARN_UNUSED_VARIABLE = YES;\n\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 12.0;\n\t\t\t\tMTL_ENABLE_DEBUG_INFO = NO;\n\t\t\t\tSDKROOT = iphoneos;\n\t\t\t\tSUPPORTED_PLATFORMS = iphoneos;\n\t\t\t\tTARGETED_DEVICE_FAMILY = \"1,2\";\n\t\t\t\tVALIDATE_PRODUCT = YES;\n\t\t\t};\n\t\t\tname = Profile;\n\t\t};\n\t\t249021D4217E4FDB00AE95B9 /* Profile */ = {\n\t\t\tisa = XCBuildConfiguration;\n\t\t\tbaseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;\n\t\t\tbuildSettings = {\n\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;\n\t\t\t\tCLANG_ENABLE_MODULES = YES;\n\t\t\t\tCURRENT_PROJECT_VERSION = \"$(FLUTTER_BUILD_NUMBER)\";\n\t\t\t\tDEVELOPMENT_TEAM = Y5CVZLAQ7G;\n\t\t\t\tENABLE_BITCODE = NO;\n\t\t\t\tINFOPLIST_FILE = Runner/Info.plist;\n\t\t\t\tLD_RUNPATH_SEARCH_PATHS = (\n\t\t\t\t\t\"$(inherited)\",\n\t\t\t\t\t\"@executable_path/Frameworks\",\n\t\t\t\t);\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.example.investment;\n\t\t\t\tPRODUCT_NAME = \"$(TARGET_NAME)\";\n\t\t\t\tSWIFT_OBJC_BRIDGING_HEADER = \"Runner/Runner-Bridging-Header.h\";\n\t\t\t\tSWIFT_VERSION = 5.0;\n\t\t\t\tVERSIONING_SYSTEM = \"apple-generic\";\n\t\t\t};\n\t\t\tname = Profile;\n\t\t};\n\t\t331C8088294A63A400263BE5 /* Debug */ = {\n\t\t\tisa = XCBuildConfiguration;\n\t\t\tbuildSettings = {\n\t\t\t\tBUNDLE_LOADER = \"$(TEST_HOST)\";\n\t\t\t\tCODE_SIGN_STYLE = Automatic;\n\t\t\t\tCURRENT_PROJECT_VERSION = 1;\n\t\t\t\tGENERATE_INFOPLIST_FILE = YES;\n\t\t\t\tMARKETING_VERSION = 1.0;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.example.investment.RunnerTests;\n\t\t\t\tPRODUCT_NAME = \"$(TARGET_NAME)\";\n\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;\n\t\t\t\tSWIFT_OPTIMIZATION_LEVEL = \"-Onone\";\n\t\t\t\tSWIFT_VERSION = 5.0;\n\t\t\t\tTEST_HOST = \"$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner\";\n\t\t\t};\n\t\t\tname = Debug;\n\t\t};\n\t\t331C8089294A63A400263BE5 /* Release */ = {\n\t\t\tisa = XCBuildConfiguration;\n\t\t\tbuildSettings = {\n\t\t\t\tBUNDLE_LOADER = \"$(TEST_HOST)\";\n\t\t\t\tCODE_SIGN_STYLE = Automatic;\n\t\t\t\tCURRENT_PROJECT_VERSION = 1;\n\t\t\t\tGENERATE_INFOPLIST_FILE = YES;\n\t\t\t\tMARKETING_VERSION = 1.0;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.example.investment.RunnerTests;\n\t\t\t\tPRODUCT_NAME = \"$(TARGET_NAME)\";\n\t\t\t\tSWIFT_VERSION = 5.0;\n\t\t\t\tTEST_HOST = \"$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner\";\n\t\t\t};\n\t\t\tname = Release;\n\t\t};\n\t\t331C808A294A63A400263BE5 /* Profile */ = {\n\t\t\tisa = XCBuildConfiguration;\n\t\t\tbuildSettings = {\n\t\t\t\tBUNDLE_LOADER = \"$(TEST_HOST)\";\n\t\t\t\tCODE_SIGN_STYLE = Automatic;\n\t\t\t\tCURRENT_PROJECT_VERSION = 1;\n\t\t\t\tGENERATE_INFOPLIST_FILE = YES;\n\t\t\t\tMARKETING_VERSION = 1.0;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.example.investment.RunnerTests;\n\t\t\t\tPRODUCT_NAME = \"$(TARGET_NAME)\";\n\t\t\t\tSWIFT_VERSION = 5.0;\n\t\t\t\tTEST_HOST = \"$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner\";\n\t\t\t};\n\t\t\tname = Profile;\n\t\t};\n\t\t97C147031CF9000F007C117D /* Debug */ = {\n\t\t\tisa = XCBuildConfiguration;\n\t\t\tbuildSettings = {\n\t\t\t\tALWAYS_SEARCH_USER_PATHS = NO;\n\t\t\t\tASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;\n\t\t\t\tCLANG_ANALYZER_NONNULL = YES;\n\t\t\t\tCLANG_CXX_LANGUAGE_STANDARD = \"gnu++0x\";\n\t\t\t\tCLANG_CXX_LIBRARY = \"libc++\";\n\t\t\t\tCLANG_ENABLE_MODULES = YES;\n\t\t\t\tCLANG_ENABLE_OBJC_ARC = YES;\n\t\t\t\tCLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;\n\t\t\t\tCLANG_WARN_BOOL_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_COMMA = YES;\n\t\t\t\tCLANG_WARN_CONSTANT_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;\n\t\t\t\tCLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;\n\t\t\t\tCLANG_WARN_EMPTY_BODY = YES;\n\t\t\t\tCLANG_WARN_ENUM_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_INFINITE_RECURSION = YES;\n\t\t\t\tCLANG_WARN_INT_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;\n\t\t\t\tCLANG_WARN_OBJC_LITERAL_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;\n\t\t\t\tCLANG_WARN_RANGE_LOOP_ANALYSIS = YES;\n\t\t\t\tCLANG_WARN_STRICT_PROTOTYPES = YES;\n\t\t\t\tCLANG_WARN_SUSPICIOUS_MOVE = YES;\n\t\t\t\tCLANG_WARN_UNREACHABLE_CODE = YES;\n\t\t\t\tCLANG_WARN__DUPLICATE_METHOD_MATCH = YES;\n\t\t\t\t\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"iPhone Developer\";\n\t\t\t\tCOPY_PHASE_STRIP = NO;\n\t\t\t\tDEBUG_INFORMATION_FORMAT = dwarf;\n\t\t\t\tENABLE_STRICT_OBJC_MSGSEND = YES;\n\t\t\t\tENABLE_TESTABILITY = YES;\n\t\t\t\tENABLE_USER_SCRIPT_SANDBOXING = NO;\n\t\t\t\tGCC_C_LANGUAGE_STANDARD = gnu99;\n\t\t\t\tGCC_DYNAMIC_NO_PIC = NO;\n\t\t\t\tGCC_NO_COMMON_BLOCKS = YES;\n\t\t\t\tGCC_OPTIMIZATION_LEVEL = 0;\n\t\t\t\tGCC_PREPROCESSOR_DEFINITIONS = (\n\t\t\t\t\t\"DEBUG=1\",\n\t\t\t\t\t\"$(inherited)\",\n\t\t\t\t);\n\t\t\t\tGCC_WARN_64_TO_32_BIT_CONVERSION = YES;\n\t\t\t\tGCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;\n\t\t\t\tGCC_WARN_UNDECLARED_SELECTOR = YES;\n\t\t\t\tGCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;\n\t\t\t\tGCC_WARN_UNUSED_FUNCTION = YES;\n\t\t\t\tGCC_WARN_UNUSED_VARIABLE = YES;\n\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 12.0;\n\t\t\t\tMTL_ENABLE_DEBUG_INFO = YES;\n\t\t\t\tONLY_ACTIVE_ARCH = YES;\n\t\t\t\tSDKROOT = iphoneos;\n\t\t\t\tTARGETED_DEVICE_FAMILY = \"1,2\";\n\t\t\t};\n\t\t\tname = Debug;\n\t\t};\n\t\t97C147041CF9000F007C117D /* Release */ = {\n\t\t\tisa = XCBuildConfiguration;\n\t\t\tbuildSettings = {\n\t\t\t\tALWAYS_SEARCH_USER_PATHS = NO;\n\t\t\t\tASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;\n\t\t\t\tCLANG_ANALYZER_NONNULL = YES;\n\t\t\t\tCLANG_CXX_LANGUAGE_STANDARD = \"gnu++0x\";\n\t\t\t\tCLANG_CXX_LIBRARY = \"libc++\";\n\t\t\t\tCLANG_ENABLE_MODULES = YES;\n\t\t\t\tCLANG_ENABLE_OBJC_ARC = YES;\n\t\t\t\tCLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;\n\t\t\t\tCLANG_WARN_BOOL_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_COMMA = YES;\n\t\t\t\tCLANG_WARN_CONSTANT_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;\n\t\t\t\tCLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;\n\t\t\t\tCLANG_WARN_EMPTY_BODY = YES;\n\t\t\t\tCLANG_WARN_ENUM_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_INFINITE_RECURSION = YES;\n\t\t\t\tCLANG_WARN_INT_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;\n\t\t\t\tCLANG_WARN_OBJC_LITERAL_CONVERSION = YES;\n\t\t\t\tCLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;\n\t\t\t\tCLANG_WARN_RANGE_LOOP_ANALYSIS = YES;\n\t\t\t\tCLANG_WARN_STRICT_PROTOTYPES = YES;\n\t\t\t\tCLANG_WARN_SUSPICIOUS_MOVE = YES;\n\t\t\t\tCLANG_WARN_UNREACHABLE_CODE = YES;\n\t\t\t\tCLANG_WARN__DUPLICATE_METHOD_MATCH = YES;\n\t\t\t\t\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"iPhone Developer\";\n\t\t\t\tCOPY_PHASE_STRIP = NO;\n\t\t\t\tDEBUG_INFORMATION_FORMAT = \"dwarf-with-dsym\";\n\t\t\t\tENABLE_NS_ASSERTIONS = NO;\n\t\t\t\tENABLE_STRICT_OBJC_MSGSEND = YES;\n\t\t\t\tENABLE_USER_SCRIPT_SANDBOXING = NO;\n\t\t\t\tGCC_C_LANGUAGE_STANDARD = gnu99;\n\t\t\t\tGCC_NO_COMMON_BLOCKS = YES;\n\t\t\t\tGCC_WARN_64_TO_32_BIT_CONVERSION = YES;\n\t\t\t\tGCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;\n\t\t\t\tGCC_WARN_UNDECLARED_SELECTOR = YES;\n\t\t\t\tGCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;\n\t\t\t\tGCC_WARN_UNUSED_FUNCTION = YES;\n\t\t\t\tGCC_WARN_UNUSED_VARIABLE = YES;\n\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 12.0;\n\t\t\t\tMTL_ENABLE_DEBUG_INFO = NO;\n\t\t\t\tSDKROOT = iphoneos;\n\t\t\t\tSUPPORTED_PLATFORMS = iphoneos;\n\t\t\t\tSWIFT_COMPILATION_MODE = wholemodule;\n\t\t\t\tSWIFT_OPTIMIZATION_LEVEL = \"-O\";\n\t\t\t\tTARGETED_DEVICE_FAMILY = \"1,2\";\n\t\t\t\tVALIDATE_PRODUCT = YES;\n\t\t\t};\n\t\t\tname = Release;\n\t\t};\n\t\t97C147061CF9000F007C117D /* Debug */ = {\n\t\t\tisa = XCBuildConfiguration;\n\t\t\tbaseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;\n\t\t\tbuildSettings = {\n\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;\n\t\t\t\tCLANG_ENABLE_MODULES = YES;\n\t\t\t\tCURRENT_PROJECT_VERSION = \"$(FLUTTER_BUILD_NUMBER)\";\n\t\t\t\tDEVELOPMENT_TEAM = Y5CVZLAQ7G;\n\t\t\t\tENABLE_BITCODE = NO;\n\t\t\t\tINFOPLIST_FILE = Runner/Info.plist;\n\t\t\t\tLD_RUNPATH_SEARCH_PATHS = (\n\t\t\t\t\t\"$(inherited)\",\n\t\t\t\t\t\"@executable_path/Frameworks\",\n\t\t\t\t);\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.example.investment;\n\t\t\t\tPRODUCT_NAME = \"$(TARGET_NAME)\";\n\t\t\t\tSWIFT_OBJC_BRIDGING_HEADER = \"Runner/Runner-Bridging-Header.h\";\n\t\t\t\tSWIFT_OPTIMIZATION_LEVEL = \"-Onone\";\n\t\t\t\tSWIFT_VERSION = 5.0;\n\t\t\t\tVERSIONING_SYSTEM = \"apple-generic\";\n\t\t\t};\n\t\t\tname = Debug;\n\t\t};\n\t\t97C147071CF9000F007C117D /* Release */ = {\n\t\t\tisa = XCBuildConfiguration;\n\t\t\tbaseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;\n\t\t\tbuildSettings = {\n\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;\n\t\t\t\tCLANG_ENABLE_MODULES = YES;\n\t\t\t\tCURRENT_PROJECT_VERSION = \"$(FLUTTER_BUILD_NUMBER)\";\n\t\t\t\tDEVELOPMENT_TEAM = Y5CVZLAQ7G;\n\t\t\t\tENABLE_BITCODE = NO;\n\t\t\t\tINFOPLIST_FILE = Runner/Info.plist;\n\t\t\t\tLD_RUNPATH_SEARCH_PATHS = (\n\t\t\t\t\t\"$(inherited)\",\n\t\t\t\t\t\"@executable_path/Frameworks\",\n\t\t\t\t);\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.example.investment;\n\t\t\t\tPRODUCT_NAME = \"$(TARGET_NAME)\";\n\t\t\t\tSWIFT_OBJC_BRIDGING_HEADER = \"Runner/Runner-Bridging-Header.h\";\n\t\t\t\tSWIFT_VERSION = 5.0;\n\t\t\t\tVERSIONING_SYSTEM = \"apple-generic\";\n\t\t\t};\n\t\t\tname = Release;\n\t\t};\n/* End XCBuildConfiguration section */\n\n/* Begin XCConfigurationList section */\n\t\t331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget \"RunnerTests\" */ = {\n\t\t\tisa = XCConfigurationList;\n\t\t\tbuildConfigurations = (\n\t\t\t\t331C8088294A63A400263BE5 /* Debug */,\n\t\t\t\t331C8089294A63A400263BE5 /* Release */,\n\t\t\t\t331C808A294A63A400263BE5 /* Profile */,\n\t\t\t);\n\t\t\tdefaultConfigurationIsVisible = 0;\n\t\t\tdefaultConfigurationName = Release;\n\t\t};\n\t\t97C146E91CF9000F007C117D /* Build configuration list for PBXProject \"Runner\" */ = {\n\t\t\tisa = XCConfigurationList;\n\t\t\tbuildConfigurations = (\n\t\t\t\t97C147031CF9000F007C117D /* Debug */,\n\t\t\t\t97C147041CF9000F007C117D /* Release */,\n\t\t\t\t249021D3217E4FDB00AE95B9 /* Profile */,\n\t\t\t);\n\t\t\tdefaultConfigurationIsVisible = 0;\n\t\t\tdefaultConfigurationName = Release;\n\t\t};\n\t\t97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget \"Runner\" */ = {\n\t\t\tisa = XCConfigurationList;\n\t\t\tbuildConfigurations = (\n\t\t\t\t97C147061CF9000F007C117D /* Debug */,\n\t\t\t\t97C147071CF9000F007C117D /* Release */,\n\t\t\t\t249021D4217E4FDB00AE95B9 /* Profile */,\n\t\t\t);\n\t\t\tdefaultConfigurationIsVisible = 0;\n\t\t\tdefaultConfigurationName = Release;\n\t\t};\n/* End XCConfigurationList section */\n\t};\n\trootObject = 97C146E61CF9000F007C117D /* Project object */;\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/ios/Runner.xcodeproj/project.pbxproj b/ios/Runner.xcodeproj/project.pbxproj
+--- a/ios/Runner.xcodeproj/project.pbxproj	(revision 5e212f1d12218957f33183c70c066929f13e196a)
++++ b/ios/Runner.xcodeproj/project.pbxproj	(date 1749781509206)
+@@ -14,6 +14,8 @@
+ 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
+ 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
+ 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
++		CE8BE54B61E7EBEBE86C8190 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB77B0F9C14C1B591C4EC789 /* Pods_RunnerTests.framework */; };
++		FA39F532B4E6B36DC2FA920C /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C55CB378D479CA6E51F85B88 /* Pods_Runner.framework */; };
+ /* End PBXBuildFile section */
+ 
+ /* Begin PBXContainerItemProxy section */
+@@ -42,9 +44,13 @@
+ /* Begin PBXFileReference section */
+ 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
+ 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
++		221B0883D8AA03200FCCE0D0 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
++		2DB341B00E498ED5A599ADCF /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
++		3161F5612246C6AE822EF602 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
+ 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
+ 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+ 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
++		462BDF7CABF873281FA4804E /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
+ 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
+ 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+ 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
+@@ -55,19 +61,46 @@
+ 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+ 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+ 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
++		C55CB378D479CA6E51F85B88 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
++		D95B0CFD66C0F9B9E56C0B8A /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
++		DD1F73041FC57B0D689D8943 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
++		EB77B0F9C14C1B591C4EC789 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+ /* End PBXFileReference section */
+ 
+ /* Begin PBXFrameworksBuildPhase section */
++		75104A61F6BCE6022685EF47 /* Frameworks */ = {
++			isa = PBXFrameworksBuildPhase;
++			buildActionMask = 2147483647;
++			files = (
++				CE8BE54B61E7EBEBE86C8190 /* Pods_RunnerTests.framework in Frameworks */,
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++		};
+ 		97C146EB1CF9000F007C117D /* Frameworks */ = {
+ 			isa = PBXFrameworksBuildPhase;
+ 			buildActionMask = 2147483647;
+ 			files = (
++				FA39F532B4E6B36DC2FA920C /* Pods_Runner.framework in Frameworks */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+ /* End PBXFrameworksBuildPhase section */
+ 
+ /* Begin PBXGroup section */
++		2F7186911DEDC499F1DDB079 /* Pods */ = {
++			isa = PBXGroup;
++			children = (
++				221B0883D8AA03200FCCE0D0 /* Pods-Runner.debug.xcconfig */,
++				D95B0CFD66C0F9B9E56C0B8A /* Pods-Runner.release.xcconfig */,
++				DD1F73041FC57B0D689D8943 /* Pods-Runner.profile.xcconfig */,
++				462BDF7CABF873281FA4804E /* Pods-RunnerTests.debug.xcconfig */,
++				2DB341B00E498ED5A599ADCF /* Pods-RunnerTests.release.xcconfig */,
++				3161F5612246C6AE822EF602 /* Pods-RunnerTests.profile.xcconfig */,
++			);
++			name = Pods;
++			path = Pods;
++			sourceTree = "<group>";
++		};
+ 		331C8082294A63A400263BE5 /* RunnerTests */ = {
+ 			isa = PBXGroup;
+ 			children = (
+@@ -94,6 +127,8 @@
+ 				97C146F01CF9000F007C117D /* Runner */,
+ 				97C146EF1CF9000F007C117D /* Products */,
+ 				331C8082294A63A400263BE5 /* RunnerTests */,
++				2F7186911DEDC499F1DDB079 /* Pods */,
++				F9C03A6FBD81623A45D5B57D /* Frameworks */,
+ 			);
+ 			sourceTree = "<group>";
+ 		};
+@@ -121,6 +156,15 @@
+ 			path = Runner;
+ 			sourceTree = "<group>";
+ 		};
++		F9C03A6FBD81623A45D5B57D /* Frameworks */ = {
++			isa = PBXGroup;
++			children = (
++				C55CB378D479CA6E51F85B88 /* Pods_Runner.framework */,
++				EB77B0F9C14C1B591C4EC789 /* Pods_RunnerTests.framework */,
++			);
++			name = Frameworks;
++			sourceTree = "<group>";
++		};
+ /* End PBXGroup section */
+ 
+ /* Begin PBXNativeTarget section */
+@@ -128,8 +172,10 @@
+ 			isa = PBXNativeTarget;
+ 			buildConfigurationList = 331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */;
+ 			buildPhases = (
++				D44A638575444D991C92BB47 /* [CP] Check Pods Manifest.lock */,
+ 				331C807D294A63A400263BE5 /* Sources */,
+ 				331C807F294A63A400263BE5 /* Resources */,
++				75104A61F6BCE6022685EF47 /* Frameworks */,
+ 			);
+ 			buildRules = (
+ 			);
+@@ -145,12 +191,14 @@
+ 			isa = PBXNativeTarget;
+ 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
+ 			buildPhases = (
++				7650B4BDD3E54433B885B2CD /* [CP] Check Pods Manifest.lock */,
+ 				9740EEB61CF901F6004384FC /* Run Script */,
+ 				97C146EA1CF9000F007C117D /* Sources */,
+ 				97C146EB1CF9000F007C117D /* Frameworks */,
+ 				97C146EC1CF9000F007C117D /* Resources */,
+ 				9705A1C41CF9048500538489 /* Embed Frameworks */,
+ 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
++				8C8B6715CFC9ACB449606D87 /* [CP] Embed Pods Frameworks */,
+ 			);
+ 			buildRules = (
+ 			);
+@@ -238,6 +286,45 @@
+ 			shellPath = /bin/sh;
+ 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+ 		};
++		7650B4BDD3E54433B885B2CD /* [CP] Check Pods Manifest.lock */ = {
++			isa = PBXShellScriptBuildPhase;
++			buildActionMask = 2147483647;
++			files = (
++			);
++			inputFileListPaths = (
++			);
++			inputPaths = (
++				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
++				"${PODS_ROOT}/Manifest.lock",
++			);
++			name = "[CP] Check Pods Manifest.lock";
++			outputFileListPaths = (
++			);
++			outputPaths = (
++				"$(DERIVED_FILE_DIR)/Pods-Runner-checkManifestLockResult.txt",
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++			shellPath = /bin/sh;
++			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
++			showEnvVarsInLog = 0;
++		};
++		8C8B6715CFC9ACB449606D87 /* [CP] Embed Pods Frameworks */ = {
++			isa = PBXShellScriptBuildPhase;
++			buildActionMask = 2147483647;
++			files = (
++			);
++			inputFileListPaths = (
++				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
++			);
++			name = "[CP] Embed Pods Frameworks";
++			outputFileListPaths = (
++				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++			shellPath = /bin/sh;
++			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
++			showEnvVarsInLog = 0;
++		};
+ 		9740EEB61CF901F6004384FC /* Run Script */ = {
+ 			isa = PBXShellScriptBuildPhase;
+ 			alwaysOutOfDate = 1;
+@@ -253,6 +340,28 @@
+ 			shellPath = /bin/sh;
+ 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+ 		};
++		D44A638575444D991C92BB47 /* [CP] Check Pods Manifest.lock */ = {
++			isa = PBXShellScriptBuildPhase;
++			buildActionMask = 2147483647;
++			files = (
++			);
++			inputFileListPaths = (
++			);
++			inputPaths = (
++				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
++				"${PODS_ROOT}/Manifest.lock",
++			);
++			name = "[CP] Check Pods Manifest.lock";
++			outputFileListPaths = (
++			);
++			outputPaths = (
++				"$(DERIVED_FILE_DIR)/Pods-RunnerTests-checkManifestLockResult.txt",
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++			shellPath = /bin/sh;
++			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
++			showEnvVarsInLog = 0;
++		};
+ /* End PBXShellScriptBuildPhase section */
+ 
+ /* Begin PBXSourcesBuildPhase section */
+@@ -379,6 +488,7 @@
+ 		};
+ 		331C8088294A63A400263BE5 /* Debug */ = {
+ 			isa = XCBuildConfiguration;
++			baseConfigurationReference = 462BDF7CABF873281FA4804E /* Pods-RunnerTests.debug.xcconfig */;
+ 			buildSettings = {
+ 				BUNDLE_LOADER = "$(TEST_HOST)";
+ 				CODE_SIGN_STYLE = Automatic;
+@@ -396,6 +506,7 @@
+ 		};
+ 		331C8089294A63A400263BE5 /* Release */ = {
+ 			isa = XCBuildConfiguration;
++			baseConfigurationReference = 2DB341B00E498ED5A599ADCF /* Pods-RunnerTests.release.xcconfig */;
+ 			buildSettings = {
+ 				BUNDLE_LOADER = "$(TEST_HOST)";
+ 				CODE_SIGN_STYLE = Automatic;
+@@ -411,6 +522,7 @@
+ 		};
+ 		331C808A294A63A400263BE5 /* Profile */ = {
+ 			isa = XCBuildConfiguration;
++			baseConfigurationReference = 3161F5612246C6AE822EF602 /* Pods-RunnerTests.profile.xcconfig */;
+ 			buildSettings = {
+ 				BUNDLE_LOADER = "$(TEST_HOST)";
+ 				CODE_SIGN_STYLE = Automatic;
+Index: macos/Flutter/Flutter-Debug.xcconfig
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>#include \"ephemeral/Flutter-Generated.xcconfig\"\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/macos/Flutter/Flutter-Debug.xcconfig b/macos/Flutter/Flutter-Debug.xcconfig
+--- a/macos/Flutter/Flutter-Debug.xcconfig	(revision 5e212f1d12218957f33183c70c066929f13e196a)
++++ b/macos/Flutter/Flutter-Debug.xcconfig	(date 1749717973089)
+@@ -1,1 +1,2 @@
++#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
+ #include "ephemeral/Flutter-Generated.xcconfig"
