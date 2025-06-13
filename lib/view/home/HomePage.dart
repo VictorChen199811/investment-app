@@ -17,7 +17,12 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final DatabaseHelper _db = DatabaseHelper();
-  String? _selectedAccount = 'TWD Securities Account';
+
+  /// 所有可用的投資帳戶
+  List<InvestmentAccount> _accounts = [];
+
+  /// 目前選擇的帳戶
+  InvestmentAccount? _selectedAccount;
 
   // 以空列表初始化，資料將從資料庫載入
   List<Investment> _investments = [];
@@ -25,7 +30,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _loadInvestments();
+    _loadAccounts();
 
     // // 初始化時進行數據驗證
     // print("投資項目總數: ${_investments.length}");
@@ -43,10 +48,24 @@ class _HomePageState extends State<HomePage> {
     // }
   }
 
-  Future<void> _loadInvestments() async {
-    var accounts = await _db.getAccounts();
+  Future<void> _loadAccounts() async {
+    final accounts = await _db.getAccounts();
+    InvestmentAccount? selected;
+    if (accounts.isNotEmpty) {
+      selected = accounts.first;
+    }
+    setState(() {
+      _accounts = accounts;
+      _selectedAccount = selected;
+    });
 
-    final data = await _db.getInvestments(1);
+    if (selected != null) {
+      await _loadInvestments(selected.id);
+    }
+  }
+
+  Future<void> _loadInvestments(int accountId) async {
+    final data = await _db.getInvestments(accountId);
     setState(() {
       _investments = data;
     });
@@ -87,13 +106,19 @@ class _HomePageState extends State<HomePage> {
         onPressed: () async {
           final result = await Navigator.push<Investment?>(
             context,
-            MaterialPageRoute(builder: (_) => const InvestmentFormPage()),
+            MaterialPageRoute(
+              builder: (_) => InvestmentFormPage(
+                initialAccountId: _selectedAccount?.id,
+              ),
+            ),
           );
 
           if (result != null) {
-            setState(() {
-              _investments = List.from(_investments)..add(result);
-            });
+            if (result.accountId == _selectedAccount?.id) {
+              setState(() {
+                _investments = List.from(_investments)..add(result);
+              });
+            }
             developer.log('Added investment: ${result.symbol}, total: ${_investments.length}');
           }
         },
@@ -158,7 +183,7 @@ class _HomePageState extends State<HomePage> {
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
+              child: DropdownButton<InvestmentAccount>(
                 isExpanded: true,
                 value: _selectedAccount,
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -168,17 +193,18 @@ class _HomePageState extends State<HomePage> {
                   setState(() {
                     _selectedAccount = value;
                   });
+                  if (value != null) {
+                    _loadInvestments(value.id);
+                  }
                 },
-                items: const [
-                  DropdownMenuItem(
-                    value: 'TWD Securities Account',
-                    child: Text('TWD 證券帳戶'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'USD Brokerage Account',
-                    child: Text('USD 經紀帳戶'),
-                  ),
-                ],
+                items: _accounts
+                    .map(
+                      (acc) => DropdownMenuItem(
+                        value: acc,
+                        child: Text(acc.name),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),
@@ -258,7 +284,7 @@ class _HomePageState extends State<HomePage> {
       itemCount: _investments.length,
       itemBuilder: (context, index) {
         final item = _investments[index];
-        return _buildTransactionTile(item);
+        return _buildTransactionTile(item, index);
       },
       separatorBuilder: (context, index) => const Divider(),
     );
@@ -327,11 +353,34 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildTransactionTile(Investment item) {
+  Widget _buildTransactionTile(Investment item, int index) {
     final amount = item.totalCost;
     final dateStr =
         '${item.buyDate.year}-${item.buyDate.month.toString().padLeft(2, '0')}-${item.buyDate.day.toString().padLeft(2, '0')}';
     return ListTile(
+      onLongPress: () {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('刪除投資'),
+            content: Text('確定要刪除 ${item.symbol} 嗎？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await _removeInvestment(index);
+                  Navigator.pop(context);
+                },
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('刪除'),
+              ),
+            ],
+          ),
+        );
+      },
       leading: const Icon(Icons.swap_vert),
       title: Text(item.symbol),
       subtitle: const Text('買入'),
@@ -569,6 +618,6 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-              ));
+    );
   }
 }
