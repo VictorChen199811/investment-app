@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'dart:developer' as developer;
 import '../../model/investment.dart';
@@ -31,20 +33,6 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _loadAccounts();
 
-    // // 初始化時進行數據驗證
-    // print("投資項目總數: ${_investments.length}");
-    // for (int i = 0; i < _investments.length; i++) {
-    //   print("項目 $i: ${_investments[i].symbol}");
-    // }
-
-    // // 為了在熱重載時也確保黃金項目存在，我們在構造函數中進行檢查
-    // // 注意：這段代碼只是為了解決當前問題，正常情況下不建議這樣做
-
-    // // 在初始化後立即確認數據已正確加載
-    // print("初始化時的投資項目數量: ${_investments.length}");
-    // for (int i = 0; i < _investments.length; i++) {
-    //   print("初始化項目 $i: ${_investments[i].symbol} (cost: ${_investments[i].totalCost})");
-    // }
   }
 
   Future<void> _loadAccounts() async {
@@ -172,7 +160,7 @@ class _HomePageState extends State<HomePage> {
             '選擇帳戶',
             style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w400,
               color: Colors.grey,
             ),
           ),
@@ -223,18 +211,16 @@ class _HomePageState extends State<HomePage> {
     Color rateColor = returnRate >= 0 ? Colors.green : Colors.red;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 10.0),
       child: Row(
         children: [
           Expanded(
-            child: _buildSummaryCard('總投資部位', totalInvestment, Colors.blue),
+            flex: 2,
+            child: _buildSummaryCard('總資產', currentValue, profitColor),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 5),
           Expanded(
-            child: _buildSummaryCard('總收益', profit, profitColor),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+            flex: 1,
             child: _buildSummaryCard('報酬率', returnRate, rateColor,
                 isPercentage: true),
           ),
@@ -303,7 +289,7 @@ class _HomePageState extends State<HomePage> {
   double _calculateCurrentValue() {
     double total = 0.0;
     for (var investment in _investments) {
-      total += investment.currentPrice;
+      total += investment.currentPrice * investment.quantity;
     }
     return total;
   }

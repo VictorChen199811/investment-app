@@ -1,6 +1,3 @@
-
-
-
 class InvestmentAccount {
   final int id;
   final String name; // 帳戶名稱（例如：台幣證券帳戶）
@@ -15,6 +12,18 @@ class InvestmentAccount {
     required this.category,
     this.note,
   });
+
+  /// 建立用於新增帳戶的實例（不包含 id）
+  InvestmentAccount.newAccount({
+    required String name,
+    required String currency,
+    required String category,
+    String? note,
+  }) : id = -1, // 用 -1 作為暫時 id 區分（實際插入時不使用）
+       name = name,
+       currency = currency,
+       category = category,
+       note = note;
 
   InvestmentAccount copyWith({
     int? id,

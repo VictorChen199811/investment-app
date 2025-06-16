@@ -3,7 +3,6 @@ import '../../model/investment.dart';
 import '../../model/investment_account.dart';
 import '../../database/database_helper.dart';
 
-
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
 
@@ -15,8 +14,6 @@ class _AccountPageState extends State<AccountPage> {
   final DatabaseHelper _db = DatabaseHelper();
   List<InvestmentAccount> _accounts = [];
   Map<int, List<Investment>> _investments = {};
-  String _name = '';
-  String _category = '美股';
 
   @override
   void initState() {
@@ -77,8 +74,8 @@ class _AccountPageState extends State<AccountPage> {
               if (name.isEmpty) return;
               final currency = _currencyForCategory(category);
               await _db.insertAccount(
-                InvestmentAccount(
-                    id: 0, name: name, currency: currency, category: category),
+                InvestmentAccount.newAccount(
+                    name: name, currency: currency, category: category),
               );
               if (mounted) {
                 Navigator.pop(context);
@@ -122,8 +119,7 @@ class _AccountPageState extends State<AccountPage> {
                   (inv) => ListTile(
                     title: Text(inv.symbol),
                     subtitle: Text('買入 ${inv.quantity} 股 @\$${inv.buyPrice}'),
-                    trailing:
-                        Text('\$${inv.currentPrice.toStringAsFixed(1)}'),
+                    trailing: Text('\$${inv.currentPrice * inv.quantity}'),
                   ),
                 )
                 .toList(),

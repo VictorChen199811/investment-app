@@ -64,8 +64,7 @@ class _InvestmentFormPageState extends State<InvestmentFormPage> {
     final quantity = int.parse(_quantityController.text.trim());
     final price = double.parse(_priceController.text.trim());
 
-    final investment = Investment(
-      id: 0,
+    final investment = Investment.newInvestment(
       accountId: _selectedAccount!.id,
       symbol: symbol,
       buyPrice: price,
@@ -142,4 +141,3 @@ class _InvestmentFormPageState extends State<InvestmentFormPage> {
     );
   }
 }
-

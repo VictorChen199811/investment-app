@@ -1,18 +1,15 @@
-
-
-
 class Investment {
   final int id;
-  final int accountId;       // 關聯帳戶 ID
-  final String symbol;       // 股票或標的代碼
-  final double buyPrice;     // 買入單價
-  final int quantity;        // 買入數量
-  final double fee;          // 手續費
-  final double? tax;         // 稅費（可選）
-  final double? otherCost;   // 其他成本（可選）
+  final int accountId; // 關聯帳戶 ID
+  final String symbol; // 股票或標的代碼
+  final double buyPrice; // 買入單價
+  final int quantity; // 買入數量
+  final double fee; // 手續費
+  final double? tax; // 稅費（可選）
+  final double? otherCost; // 其他成本（可選）
   final double currentPrice; // 當前市價
-  final DateTime buyDate;    // 買入日期
-  final String? note;        // 備註
+  final DateTime buyDate; // 買入日期
+  final String? note; // 備註
 
   Investment({
     required this.id,
@@ -29,8 +26,22 @@ class Investment {
   });
 
   double get totalCost {
+    // 買入單價 * 買入數量 + 手續費 + 稅費 + 其他成本
     return buyPrice * quantity + fee + (tax ?? 0) + (otherCost ?? 0);
   }
+
+  Investment.newInvestment({
+    required this.accountId,
+    required this.symbol,
+    required this.buyPrice,
+    required this.quantity,
+    required this.fee,
+    this.tax,
+    this.otherCost,
+    required this.currentPrice,
+    required this.buyDate,
+    this.note,
+  }) : id = -1;
 
   Investment copyWith({
     int? id,
@@ -61,7 +72,7 @@ class Investment {
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    final map = {
       'id': id,
       'accountId': accountId,
       'symbol': symbol,
@@ -74,6 +85,7 @@ class Investment {
       'buyDate': buyDate.millisecondsSinceEpoch,
       'note': note,
     };
+    return map;
   }
 
   factory Investment.fromMap(Map<String, dynamic> map) {
